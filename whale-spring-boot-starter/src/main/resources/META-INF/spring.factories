@@ -1,0 +1,1 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=com.xxelin.whale.starter.configuration.WhaleConfiguration
