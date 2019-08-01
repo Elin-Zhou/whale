@@ -12,7 +12,7 @@ whale is a cache framework that is simple to use
 ## 技术选型
 * 远程缓存 Redis
 * 本地缓存 Caffenine
-* 集群间同步？ ZooKeeper
+* 集群间同步？ ZooKeeper/Redis发布订阅
 
 ## 集群间同步
 1. 通过redis发布订阅来广播缓存失效

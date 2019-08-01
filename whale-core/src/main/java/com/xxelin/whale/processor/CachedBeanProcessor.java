@@ -31,8 +31,9 @@ public class CachedBeanProcessor implements BeanPostProcessor {
         HashMultimap<String, String> multimap = HashMultimap.create();
 
         Method[] methods = clazz.getDeclaredMethods();
+        Cached cached = null;
         for (Method method : methods) {
-            if (method.getAnnotation(Cached.class) != null) {
+            if ((cached = method.getAnnotation(Cached.class)) != null) {
                 multimap.put(clazz.getName(), FormatUtils.format(method));
                 continue;
             }
@@ -40,7 +41,7 @@ public class CachedBeanProcessor implements BeanPostProcessor {
             for (int i = interfaces.length - 1; i >= 0; i--) {
                 try {
                     Method superMethod = interfaces[i].getDeclaredMethod(method.getName(), method.getParameterTypes());
-                    if (superMethod.getAnnotation(Cached.class) != null) {
+                    if ((cached = superMethod.getAnnotation(Cached.class)) != null) {
                         multimap.put(interfaces[i].getName(), FormatUtils.format(superMethod));
                         break;
                     }
@@ -51,7 +52,7 @@ public class CachedBeanProcessor implements BeanPostProcessor {
         }
 
 
-        boolean proxy = !multimap.isEmpty();
+        boolean proxy = !multimap.isEmpty() && cached != null;
         //to reduce CopyOnWriteArraySet copy times
         for (Map.Entry<String, Collection<String>> entry : multimap.asMap().entrySet()) {
             CACHED_CLASS_METHODS.put(entry.getKey(), new HashSet<>(entry.getValue()));
@@ -62,7 +63,7 @@ public class CachedBeanProcessor implements BeanPostProcessor {
         //if some method in this object use Cached annotation,create proxy
         Enhancer enhancer = new Enhancer();
         enhancer.setSuperclass(clazz);
-        enhancer.setCallback(new CachedMethodInterceptor(o));
+        enhancer.setCallback(new CachedMethodInterceptor(o, cached));
         return enhancer.create();
     }
 
