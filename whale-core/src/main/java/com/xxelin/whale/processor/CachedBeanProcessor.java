@@ -1,18 +1,16 @@
 package com.xxelin.whale.processor;
 
-import com.google.common.collect.HashMultimap;
 import com.xxelin.whale.annotation.Cached;
-import com.xxelin.whale.utils.FormatUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.cglib.proxy.Enhancer;
+import org.springframework.core.annotation.AnnotationUtils;
 
 import java.lang.reflect.Method;
-import java.util.Collection;
-import java.util.HashSet;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Proxy;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com
@@ -21,57 +19,38 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class CachedBeanProcessor implements BeanPostProcessor {
 
-    private static final ConcurrentHashMap<String, Set<String>> CACHED_CLASS_METHODS = new ConcurrentHashMap<>();
-
-
     public Object postProcessAfterInitialization(Object o, String s) {
         Class<?> clazz = o.getClass();
-        Class<?>[] interfaces = clazz.getInterfaces();
-
-        HashMultimap<String, String> multimap = HashMultimap.create();
 
         Method[] methods = clazz.getDeclaredMethods();
-        Cached cached = null;
+        Map<Method, Cached> cachedMap = new HashMap<>(methods.length);
         for (Method method : methods) {
-            if ((cached = method.getAnnotation(Cached.class)) != null) {
-                multimap.put(clazz.getName(), FormatUtils.format(method));
-                continue;
-            }
-
-            for (int i = interfaces.length - 1; i >= 0; i--) {
-                try {
-                    Method superMethod = interfaces[i].getDeclaredMethod(method.getName(), method.getParameterTypes());
-                    if ((cached = superMethod.getAnnotation(Cached.class)) != null) {
-                        multimap.put(interfaces[i].getName(), FormatUtils.format(superMethod));
-                        break;
-                    }
-                } catch (NoSuchMethodException e) {
-                    //do nothing,keep search
-                }
+            Cached cached = AnnotationUtils.findAnnotation(method, Cached.class);
+            if (cached != null) {
+                cachedMap.put(method, cached);
             }
         }
 
-
-        boolean proxy = !multimap.isEmpty() && cached != null;
-        //to reduce CopyOnWriteArraySet copy times
-        for (Map.Entry<String, Collection<String>> entry : multimap.asMap().entrySet()) {
-            CACHED_CLASS_METHODS.put(entry.getKey(), new HashSet<>(entry.getValue()));
-        }
+        boolean proxy = !cachedMap.isEmpty();
         if (!proxy) {
             return o;
         }
         //if some method in this object use Cached annotation,create proxy
-        Enhancer enhancer = new Enhancer();
-        enhancer.setSuperclass(clazz);
-        enhancer.setCallback(new CachedMethodInterceptor(o, cached));
-        return enhancer.create();
+
+        if (!Modifier.isFinal(clazz.getModifiers())) {
+            Enhancer enhancer = new Enhancer();
+            enhancer.setSuperclass(clazz);
+            enhancer.setCallback(new CachedMethodInterceptor(o, cachedMap));
+            return enhancer.create();
+        }
+        //if target class is final,use jdk dynamic proxy
+        Class<?>[] interfaces = clazz.getInterfaces();
+        return Proxy.newProxyInstance(o.getClass().getClassLoader(), interfaces, new CachedMethodInterceptor(o,
+                cachedMap));
+
     }
 
     public Object postProcessBeforeInitialization(Object o, String s) {
         return o;
-    }
-
-    static ConcurrentHashMap<String, Set<String>> getCachedClassMethods() {
-        return CACHED_CLASS_METHODS;
     }
 }

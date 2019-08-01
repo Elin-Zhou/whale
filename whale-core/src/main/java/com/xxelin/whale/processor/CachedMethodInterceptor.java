@@ -3,72 +3,94 @@ package com.xxelin.whale.processor;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.xxelin.whale.annotation.Cached;
-import com.xxelin.whale.config.ConfigHolder;
-import com.xxelin.whale.config.GlobalConfig;
 import com.xxelin.whale.utils.FormatUtils;
+import com.xxelin.whale.utils.Null;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cglib.proxy.MethodInterceptor;
 import org.springframework.cglib.proxy.MethodProxy;
+import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.util.ClassUtils;
 
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.lang.reflect.Proxy;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com
  * @version $Id: CachedMethodInterceptor.java , v 0.1 2019-08-01 11:36 ElinZhou Exp $
  */
 @Slf4j
-public class CachedMethodInterceptor implements MethodInterceptor {
+public class CachedMethodInterceptor implements MethodInterceptor, InvocationHandler {
 
-    private static final CopyOnWriteArraySet<Method> CACHED_METHODS = new CopyOnWriteArraySet<>();
+    private Object objectProxy;
 
-    private Object originalObject;
+    private Class<?> originalClass;
 
-    private Cached cached;
+    private Map<Method, Cached> cachedMap;
 
-    public CachedMethodInterceptor(Object originalObject, Cached cached) {
-        this.originalObject = originalObject;
-        this.cached = cached;
+    private ConcurrentHashMap<String, Cache<String, Object>> cache = new ConcurrentHashMap<>(128);
+
+
+    public CachedMethodInterceptor(Object objectProxy, Map<Method, Cached> cachedMap) {
+        this.objectProxy = objectProxy;
+        this.cachedMap = cachedMap;
+        init();
     }
 
     private void init() {
+        originalClass = ClassUtils.getUserClass(objectProxy);
+        if (Proxy.isProxyClass(originalClass) || ClassUtils.isCglibProxyClass(originalClass)) {
+            Class<?>[] interfaces = originalClass.getInterfaces();
+            if (interfaces.length == 0) {
+                throw new IllegalStateException("unsupport cache method!");
+            }
+            originalClass = interfaces[interfaces.length - 1];
+        }
+        for (Map.Entry<Method, Cached> entry : cachedMap.entrySet()) {
+            String method = FormatUtils.format(entry.getKey());
+            Cache<String, Object> cache =
+                    Caffeine.newBuilder().expireAfterWrite(1, TimeUnit.MINUTES).maximumSize(10000).build();
+            this.cache.put(method, cache);
+        }
     }
 
     @Override
     public Object intercept(Object o, Method method, Object[] objects, MethodProxy methodProxy) throws Throwable {
-        Class<?> invokeClass = originalObject.getClass();
-        Class<?>[] invokeInterfaces = invokeClass.getInterfaces();
+        return invoke(o, method, objects);
+    }
 
-        List<Class<?>> classes = new ArrayList<>(Arrays.asList(invokeInterfaces));
-        classes.add(invokeClass);
-
-        String effectClassName = null;
-        boolean cachedMethod = CACHED_METHODS.contains(method);
-        if (!cachedMethod) {
-            for (int i = classes.size() - 1; i >= 0; i--) {
-                Class<?> now = classes.get(i);
-                Set<String> cachedMethods = CachedBeanProcessor.getCachedClassMethods().get(now.getName());
-                if (cachedMethods != null && cachedMethods.contains(FormatUtils.format(method))) {
-                    effectClassName = now.getName();
-                    cachedMethod = true;
-                    CACHED_METHODS.add(method);
-                    break;
-                }
-            }
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        Cached cached = AnnotationUtils.findAnnotation(method, Cached.class);
+        if (cached == null) {
+            return method.invoke(objectProxy, args);
         }
-        if (!cachedMethod) {
-            return methodProxy.invoke(originalObject, objects);
-        }
+        String key = FormatUtils.cacheKey(originalClass, method, args);
         if (log.isDebugEnabled()) {
-            log.debug("{}.{} use cache", effectClassName, FormatUtils.format(method));
+            log.debug("[use cache]{}", key);
         }
-
-
-        //TODO read cache
-        return methodProxy.invoke(originalObject, objects);
+        Cache<String, Object> caffeine = cache.get(FormatUtils.format(method));
+        Object value = caffeine.getIfPresent(key);
+        if (value != null) {
+            log.debug("[hit cache]{}", key);
+            if (value instanceof Null) {
+                return null;
+            }
+            return value;
+        }
+        long start = System.currentTimeMillis();
+        Object result = method.invoke(objectProxy, args);
+        if (log.isDebugEnabled()) {
+            log.debug("[miss cache,spend:{}]{}", (System.currentTimeMillis() - start), key);
+        }
+        if (result != null) {
+            caffeine.put(key, result);
+        } else if (cached.cacheNull()) {
+            caffeine.put(key, Null.of());
+        }
+        return result;
     }
 }

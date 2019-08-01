@@ -59,7 +59,7 @@ public class FormatUtils {
         if (param == null) {
             return "null";
         } else if (BASIC_CLASS.contains(param.getClass())) {
-            return String.valueOf(param);
+            return param + "/" + param.getClass().getSimpleName().toUpperCase();
         } else {
             return JSON.toJSONString(param);
         }
