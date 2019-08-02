@@ -3,9 +3,14 @@ package com.xxelin.whale.processor;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.xxelin.whale.annotation.Cached;
+import com.xxelin.whale.config.CachedMethodConfig;
+import com.xxelin.whale.config.GlobalConfig;
+import com.xxelin.whale.core.CaffeineCacher;
+import com.xxelin.whale.core.LocalCacher;
+import com.xxelin.whale.enums.CacheType;
 import com.xxelin.whale.utils.FormatUtils;
-import com.xxelin.whale.utils.Null;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.cglib.proxy.MethodInterceptor;
 import org.springframework.cglib.proxy.MethodProxy;
 import org.springframework.core.annotation.AnnotationUtils;
@@ -16,7 +21,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com
@@ -29,18 +33,19 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
 
     private Class<?> originalClass;
 
-    private Map<Method, Cached> cachedMap;
+    private ConcurrentHashMap<String, LocalCacher> localCacherMap = new ConcurrentHashMap<>(128);
 
-    private ConcurrentHashMap<String, Cache<String, Object>> cache = new ConcurrentHashMap<>(128);
+    private ConcurrentHashMap<String, CachedMethodConfig> configMap = new ConcurrentHashMap<>(128);
 
+    private GlobalConfig globalConfig;
 
-    public CachedMethodInterceptor(Object objectProxy, Map<Method, Cached> cachedMap) {
+    public CachedMethodInterceptor(Object objectProxy, Map<Method, Cached> cachedMap, GlobalConfig globalConfig) {
         this.objectProxy = objectProxy;
-        this.cachedMap = cachedMap;
-        init();
+        this.globalConfig = globalConfig;
+        init(cachedMap);
     }
 
-    private void init() {
+    private void init(Map<Method, Cached> cachedMap) {
         originalClass = ClassUtils.getUserClass(objectProxy);
         if (Proxy.isProxyClass(originalClass) || ClassUtils.isCglibProxyClass(originalClass)) {
             Class<?>[] interfaces = originalClass.getInterfaces();
@@ -51,11 +56,39 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         }
         for (Map.Entry<Method, Cached> entry : cachedMap.entrySet()) {
             String method = FormatUtils.format(entry.getKey());
-            Cache<String, Object> cache =
-                    Caffeine.newBuilder().expireAfterWrite(1, TimeUnit.MINUTES).maximumSize(10000).build();
-            this.cache.put(method, cache);
+            CachedMethodConfig config = config(entry.getKey(), entry.getValue());
+            CacheType type = config.getType();
+            if (type == CacheType.LOCAL || type == CacheType.BOTH) {
+                Cache<String, Object> cache =
+                        Caffeine.newBuilder().expireAfterWrite(config.getLocalExpire(), config.getTimeUnit()).maximumSize(config.getSizeLimit()).build();
+                localCacherMap.put(method, new CaffeineCacher(cache));
+            }
+            configMap.put(method, config);
         }
     }
+
+    private CachedMethodConfig config(Method method, Cached cached) {
+        CachedMethodConfig config = new CachedMethodConfig();
+        config.setNameSpace(globalConfig.getNameSpace());
+        config.setName(StringUtils.isNotEmpty(cached.name()) ? cached.name() : null);
+        if (cached.expire() == -1) {
+            throw new IllegalStateException("[" + method.getDeclaringClass().getName() + "." + method.getName() + "] " +
+                    "must set expire time");
+        }
+        config.setExpire(cached.expire());
+        config.setTimeUnit(cached.timeUnit());
+        config.setLocalExpire(cached.localExpire() == -1 ? cached.expire() : cached.localExpire());
+        config.setType(cached.type());
+        int sizeLimit = cached.sizeLimit();
+        if (globalConfig.getMaxSizeLimit() != null && sizeLimit > globalConfig.getMaxSizeLimit()) {
+            sizeLimit = globalConfig.getMaxSizeLimit();
+        }
+        config.setSizeLimit(sizeLimit);
+        config.setConsistency(cached.consistency() || globalConfig.isConsistency());
+        config.setCacheNull(cached.cacheNull() || globalConfig.isCacheNull());
+        return config;
+    }
+
 
     @Override
     public Object intercept(Object o, Method method, Object[] objects, MethodProxy methodProxy) throws Throwable {
@@ -69,28 +102,16 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
             return method.invoke(objectProxy, args);
         }
         String key = FormatUtils.cacheKey(originalClass, method, args);
+
+        String methodKey = FormatUtils.format(method);
+        LocalCacher localCacher = localCacherMap.get(methodKey);
+        CachedMethodConfig config = configMap.get(methodKey);
         if (log.isDebugEnabled()) {
-            log.debug("[use cache]{}", key);
+            log.debug("{} user cache type:{}", FormatUtils.format(originalClass, method), config.getType());
         }
-        Cache<String, Object> caffeine = cache.get(FormatUtils.format(method));
-        Object value = caffeine.getIfPresent(key);
-        if (value != null) {
-            log.debug("[hit cache]{}", key);
-            if (value instanceof Null) {
-                return null;
-            }
-            return value;
+        if (config.getType() == CacheType.LOCAL || config.getType() == CacheType.BOTH) {
+            return localCacher.load(key, () -> method.invoke(objectProxy, args), config);
         }
-        long start = System.currentTimeMillis();
-        Object result = method.invoke(objectProxy, args);
-        if (log.isDebugEnabled()) {
-            log.debug("[miss cache,spend:{}]{}", (System.currentTimeMillis() - start), key);
-        }
-        if (result != null) {
-            caffeine.put(key, result);
-        } else if (cached.cacheNull()) {
-            caffeine.put(key, Null.of());
-        }
-        return result;
+        return method.invoke(objectProxy, args);
     }
 }

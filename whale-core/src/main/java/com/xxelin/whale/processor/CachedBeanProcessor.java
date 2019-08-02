@@ -1,6 +1,7 @@
 package com.xxelin.whale.processor;
 
 import com.xxelin.whale.annotation.Cached;
+import com.xxelin.whale.config.GlobalConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.cglib.proxy.Enhancer;
@@ -18,6 +19,12 @@ import java.util.Map;
  */
 @Slf4j
 public class CachedBeanProcessor implements BeanPostProcessor {
+
+    private GlobalConfig globalConfig;
+
+    public CachedBeanProcessor(GlobalConfig globalConfig) {
+        this.globalConfig = globalConfig;
+    }
 
     public Object postProcessAfterInitialization(Object o, String s) {
         Class<?> clazz = o.getClass();
@@ -40,13 +47,13 @@ public class CachedBeanProcessor implements BeanPostProcessor {
         if (!Modifier.isFinal(clazz.getModifiers())) {
             Enhancer enhancer = new Enhancer();
             enhancer.setSuperclass(clazz);
-            enhancer.setCallback(new CachedMethodInterceptor(o, cachedMap));
+            enhancer.setCallback(new CachedMethodInterceptor(o, cachedMap, globalConfig));
             return enhancer.create();
         }
         //if target class is final,use jdk dynamic proxy
         Class<?>[] interfaces = clazz.getInterfaces();
         return Proxy.newProxyInstance(o.getClass().getClassLoader(), interfaces, new CachedMethodInterceptor(o,
-                cachedMap));
+                cachedMap, globalConfig));
 
     }
 

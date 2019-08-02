@@ -1,7 +1,7 @@
 package com.xxelin.whale.starter.configuration;
 
+import com.xxelin.whale.config.GlobalConfig;
 import com.xxelin.whale.processor.CachedBeanProcessor;
-import com.xxelin.whale.starter.parser.ConfigParser;
 import com.xxelin.whale.starter.properties.WhaleProperties;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -20,22 +20,24 @@ import org.springframework.core.env.Environment;
 @ConditionalOnProperty(prefix = "whale", havingValue = "true", name = "enable")
 public class WhaleConfiguration {
 
-    @Bean
-    @ConditionalOnMissingBean(CachedBeanProcessor.class)
-    public static CachedBeanProcessor cacheBeanProcessor() {
-        return new CachedBeanProcessor();
+    private WhaleConfiguration(){
+        //private
     }
 
     @Bean
-    @ConditionalOnMissingBean
-    public ConfigParser configParser(WhaleProperties whaleProperties, Environment environment) {
+    @ConditionalOnMissingBean(CachedBeanProcessor.class)
+    public static CachedBeanProcessor cacheBeanProcessor(WhaleProperties whaleProperties, Environment environment) {
         String nameSpace = StringUtils.isNotEmpty(whaleProperties.getNameSpace()) ? whaleProperties.getNameSpace() :
                 environment.getProperty("spring.application.name");
 
         if (StringUtils.isEmpty(nameSpace)) {
             throw new IllegalStateException("namespace must specified!");
         }
-        return new ConfigParser(nameSpace);
+        GlobalConfig configuration = GlobalConfig.builder().nameSpace(nameSpace)
+                .cacheNull(whaleProperties.isCacheNull())
+                .consistency(whaleProperties.isConsistency())
+                .build();
+        return new CachedBeanProcessor(configuration);
     }
 
 }

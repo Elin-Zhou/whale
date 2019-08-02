@@ -23,6 +23,10 @@ public class FormatUtils {
             long.class, double.class, Boolean.class, Integer.class, Byte.class, Long.class, Double.class, Float.class
             , Character.class, Short.class, Boolean.class);
 
+    public static String format(Class<?> clazz, Method method) {
+        return clazz.getName() + "." + method.getName();
+    }
+
     public static String format(Method method) {
         StringBuilder sb = new StringBuilder(method.getName());
         Class<?>[] parameterTypes = method.getParameterTypes();

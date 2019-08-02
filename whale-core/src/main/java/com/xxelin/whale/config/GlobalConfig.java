@@ -1,12 +1,9 @@
 package com.xxelin.whale.config;
 
-import com.xxelin.whale.enums.CacheType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com
@@ -20,15 +17,7 @@ public class GlobalConfig {
 
     private String nameSpace;
 
-    private Long expire;
-
-    private TimeUnit timeUnit;
-
-    private Long localExpire;
-
-    private CacheType type;
-
-    private Integer sizeLimit;
+    private Integer maxSizeLimit;
 
     private boolean consistency;
 

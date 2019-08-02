@@ -1,10 +1,7 @@
 package com.xxelin.whale.starter.properties;
 
-import com.xxelin.whale.enums.CacheType;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com
@@ -17,16 +14,6 @@ public class WhaleProperties {
     private boolean enable;
 
     private String nameSpace;
-
-    private Long expire;
-
-    private TimeUnit timeUnit;
-
-    private Long localExpire;
-
-    private CacheType type;
-
-    private Integer sizeLimit;
 
     private boolean consistency;
 
