@@ -42,8 +42,7 @@ public class CachedBeanProcessor implements BeanPostProcessor {
         if (!proxy) {
             return o;
         }
-        //if some method in this object use Cached annotation,create proxy
-
+        //if some method in this object use Cached annotation,create bean proxy
         if (!Modifier.isFinal(clazz.getModifiers())) {
             Enhancer enhancer = new Enhancer();
             enhancer.setSuperclass(clazz);

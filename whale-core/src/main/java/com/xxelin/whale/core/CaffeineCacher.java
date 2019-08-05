@@ -2,10 +2,9 @@ package com.xxelin.whale.core;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.xxelin.whale.config.CachedMethodConfig;
+import com.xxelin.whale.utils.CacheLockHolder;
 import com.xxelin.whale.utils.Null;
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.concurrent.atomic.LongAdder;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com
@@ -14,10 +13,6 @@ import java.util.concurrent.atomic.LongAdder;
 @Slf4j
 public class CaffeineCacher implements LocalCacher {
 
-    private static final LongAdder HIT_TIMES = new LongAdder();
-
-    private static final LongAdder MISS_TIMES = new LongAdder();
-
     private Cache<String, Object> cache;
 
     public CaffeineCacher(Cache<String, Object> cache) {
@@ -25,30 +20,28 @@ public class CaffeineCacher implements LocalCacher {
     }
 
     @Override
-    public long hitTimes() {
-        return HIT_TIMES.longValue();
-    }
-
-    @Override
-    public long missTimes() {
-        return MISS_TIMES.longValue();
-    }
-
-    @Override
     @SuppressWarnings("unchecked")
     public <T> T load(String key, SourceBack<T> method, CachedMethodConfig cachedMethodConfig) throws Exception {
-
-        Object value = cache.getIfPresent(key);
-        if (value instanceof Null) {
+        Object result = cache.getIfPresent(key);
+        if (result == null) {
+            synchronized (CacheLockHolder.getLock(key)) {
+                if ((result = cache.getIfPresent(key)) == null) {
+                    result = sourceBack(key, method, cachedMethodConfig);
+                }
+            }
+        } else {
             log.debug("[hit cache]{}", key);
-            HIT_TIMES.increment();
-            return null;
-        } else if (value != null) {
-            log.debug("[hit cache]{}", key);
-            HIT_TIMES.increment();
-            return (T) value;
         }
-        MISS_TIMES.increment();
+
+        if (result instanceof Null) {
+            return null;
+        } else if (result != null) {
+            return (T) result;
+        }
+        return null;
+    }
+
+    private <T> T sourceBack(String key, SourceBack<T> method, CachedMethodConfig cachedMethodConfig) throws Exception {
         long start = System.currentTimeMillis();
         T result = method.get();
         if (log.isDebugEnabled()) {

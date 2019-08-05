@@ -20,10 +20,6 @@ import org.springframework.core.env.Environment;
 @ConditionalOnProperty(prefix = "whale", havingValue = "true", name = "enable")
 public class WhaleConfiguration {
 
-    private WhaleConfiguration(){
-        //private
-    }
-
     @Bean
     @ConditionalOnMissingBean(CachedBeanProcessor.class)
     public static CachedBeanProcessor cacheBeanProcessor(WhaleProperties whaleProperties, Environment environment) {

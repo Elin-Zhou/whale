@@ -8,15 +8,7 @@ import com.xxelin.whale.config.CachedMethodConfig;
  */
 public interface Cacher {
 
-    long hitTimes();
-
-    long missTimes();
-
     <T> T load(String key, SourceBack<T> method, CachedMethodConfig config) throws Exception;
 
     void invalidate(String key);
-
-    default double hitRate() {
-        return ((double) hitTimes()) / (hitTimes() + missTimes());
-    }
 }
