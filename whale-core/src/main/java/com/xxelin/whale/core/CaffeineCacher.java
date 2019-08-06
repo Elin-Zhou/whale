@@ -22,15 +22,21 @@ public class CaffeineCacher implements LocalCacher {
     @Override
     @SuppressWarnings("unchecked")
     public <T> T load(String key, SourceBack<T> method, CachedMethodConfig cachedMethodConfig) throws Exception {
+        boolean hit = true;
         Object result = cache.getIfPresent(key);
         if (result == null) {
             synchronized (CacheLockHolder.getLock(key)) {
                 if ((result = cache.getIfPresent(key)) == null) {
+                    hit = false;
                     result = sourceBack(key, method, cachedMethodConfig);
                 }
             }
         } else {
             log.debug("[hit cache]{}", key);
+        }
+
+        if (hit) {
+            PageHelperHolder.clear();
         }
 
         if (result instanceof Null) {

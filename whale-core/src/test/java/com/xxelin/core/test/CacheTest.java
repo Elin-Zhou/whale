@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class CacheTest {
 
-    @Test
+//    @Test
     public void cacheTest() throws InterruptedException {
 
         Cache<String, Long> cache = Caffeine.newBuilder().build();
