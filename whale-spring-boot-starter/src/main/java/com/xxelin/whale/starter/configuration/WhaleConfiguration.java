@@ -23,13 +23,15 @@ public class WhaleConfiguration {
     @Bean
     @ConditionalOnMissingBean(CachedBeanProcessor.class)
     public static CachedBeanProcessor cacheBeanProcessor(WhaleProperties whaleProperties, Environment environment) {
-        String nameSpace = StringUtils.isNotEmpty(whaleProperties.getNameSpace()) ? whaleProperties.getNameSpace() :
+        String nameSpace = StringUtils.isNotEmpty(whaleProperties.getNamespace()) ? whaleProperties.getNamespace() :
                 environment.getProperty("spring.application.name");
 
         if (StringUtils.isEmpty(nameSpace)) {
             throw new IllegalStateException("namespace must specified!");
         }
-        GlobalConfig configuration = GlobalConfig.builder().nameSpace(nameSpace)
+        GlobalConfig configuration = GlobalConfig.builder().namespace(nameSpace)
+                .expireSeconds(whaleProperties.getExpireSeconds())
+                .maxSizeLimit(whaleProperties.getMaxSizeLimit())
                 .cacheNull(whaleProperties.isCacheNull())
                 .consistency(whaleProperties.isConsistency())
                 .build();

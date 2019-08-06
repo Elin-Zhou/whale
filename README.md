@@ -24,7 +24,7 @@ whale is a cache framework that is simple to use
 * 远程缓存 第一个版本仅支持redis
 * 集群同步服务 第一个版本仅支持redis，后续支持zk
 * redis链接信息
-* 全局最大缓存时间
+* 全局缓存时间
 * 全局最大本地缓存数量
 * 全局一致性开关
 

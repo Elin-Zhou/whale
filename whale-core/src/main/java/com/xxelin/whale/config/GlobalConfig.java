@@ -15,7 +15,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class GlobalConfig {
 
-    private String nameSpace;
+    private String namespace;
+
+    private Long expireSeconds;
 
     private Integer maxSizeLimit;
 

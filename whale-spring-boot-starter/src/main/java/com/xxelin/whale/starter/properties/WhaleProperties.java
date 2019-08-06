@@ -13,7 +13,11 @@ public class WhaleProperties {
 
     private boolean enable;
 
-    private String nameSpace;
+    private String namespace;
+
+    private Long expireSeconds;
+
+    private Integer maxSizeLimit;
 
     private boolean consistency;
 

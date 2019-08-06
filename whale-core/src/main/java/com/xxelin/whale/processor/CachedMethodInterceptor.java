@@ -21,6 +21,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com
@@ -69,15 +70,15 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
 
     private CachedMethodConfig config(Method method, Cached cached) {
         CachedMethodConfig config = new CachedMethodConfig();
-        config.setNameSpace(globalConfig.getNameSpace());
+        config.setNameSpace(globalConfig.getNamespace());
         config.setName(StringUtils.isNotEmpty(cached.name()) ? cached.name() : null);
-        if (cached.expire() == -1) {
+        if (cached.expire() == -1 && globalConfig.getExpireSeconds() == null) {
             throw new IllegalStateException("[" + method.getDeclaringClass().getName() + "." + method.getName() + "] " +
                     "must set expire time");
         }
-        config.setExpire(cached.expire());
-        config.setTimeUnit(cached.timeUnit());
-        config.setLocalExpire(cached.localExpire() == -1 ? cached.expire() : cached.localExpire());
+        config.setExpire(cached.expire() == -1 ? globalConfig.getExpireSeconds() : cached.expire());
+        config.setTimeUnit(cached.expire() == -1 ? TimeUnit.SECONDS : cached.timeUnit());
+        config.setLocalExpire(cached.localExpire() == -1 ? config.getExpire() : cached.localExpire());
         config.setType(cached.type());
         int sizeLimit = cached.sizeLimit();
         if (globalConfig.getMaxSizeLimit() != null && sizeLimit > globalConfig.getMaxSizeLimit()) {
