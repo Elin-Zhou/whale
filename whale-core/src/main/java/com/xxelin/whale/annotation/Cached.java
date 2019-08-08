@@ -20,7 +20,14 @@ public @interface Cached {
 
     String nameSpace() default "";
 
-    String name() default "";
+    /**
+     * 缓存id，用来作为缓存的key，根据此字段查询缓存
+     * 不设置此值时将所有参数通过json序列化作为key
+     * 如果需要使用自定义key，请使用SpEL表达式
+     *
+     * @return
+     */
+    String id() default "";
 
     long expire() default -1;
 
@@ -35,5 +42,12 @@ public @interface Cached {
     boolean consistency() default false;
 
     boolean cacheNull() default false;
+
+    /**
+     * 使用SpEL表达式，如果表达式返回true，则使用缓存（如果命中）；如果表达式返回false，就直接回源数据
+     *
+     * @return
+     */
+    String condition() default "";
 
 }

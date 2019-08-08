@@ -34,7 +34,7 @@ whale is a cache framework that is simple to use
 参数名称 | 含义 | 默认值 | 是否必须 | 备注 
 :-: | :-: | :-: | :-: | :-:
 namespace | 命名空间 |spring.application.name|true
-name | 缓存名称 | null | true
+id | 缓存id| null | false|使用SpEL表达式生成缓存标识，如果不设置，会把参数转成JSON后用,拼接作为缓存id
 expire | 失效时间 | null |true
 timeUnit |失效时间单位 |TimeUnit.SECOND |true
 localExpire | 本地缓存 | null |false| 仅当使用了本地缓存时生效，如果不配置，则与expire相同
@@ -42,6 +42,7 @@ type | 缓存类型 |CacheType.LOCAL |true|CacheType.LOCAL,CacheType.Remote,Cach
 sizeLimit|本地最大的缓存数量|Integer.MAX_VALUE|false|
 consistency|是否需要保证一致性|false|false|在集群同步服务可用时会使用锁策略保证同一时间只有一个服务开启加载缓存操作；如果同步服务不可用，会停用本地缓存并清空所以已缓存数据
 cacheNull|是否缓存null值|false|false
+condition|是否使用缓存|true|false|使用SpEL表达式，如果表达式返回true，则使用缓存（如果命中）；如果表达式返回false，就直接回源数据
 
 
 

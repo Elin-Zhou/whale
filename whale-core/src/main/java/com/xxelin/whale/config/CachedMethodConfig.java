@@ -14,7 +14,7 @@ public class CachedMethodConfig {
 
     private String nameSpace;
 
-    private String name;
+    private String id;
 
     private Long expire;
 
@@ -29,5 +29,7 @@ public class CachedMethodConfig {
     private boolean consistency;
 
     private boolean cacheNull;
+
+    private String condition;
 
 }

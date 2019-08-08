@@ -9,7 +9,9 @@ import com.xxelin.whale.core.CaffeineCacher;
 import com.xxelin.whale.core.LocalCacher;
 import com.xxelin.whale.enums.CacheType;
 import com.xxelin.whale.utils.FormatUtils;
+import com.xxelin.whale.utils.SpelUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.cglib.proxy.MethodInterceptor;
 import org.springframework.cglib.proxy.MethodProxy;
@@ -71,7 +73,7 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
     private CachedMethodConfig config(Method method, Cached cached) {
         CachedMethodConfig config = new CachedMethodConfig();
         config.setNameSpace(globalConfig.getNamespace());
-        config.setName(StringUtils.isNotEmpty(cached.name()) ? cached.name() : null);
+        config.setId(StringUtils.isNotEmpty(cached.id()) ? cached.id() : null);
         if (cached.expire() == -1 && globalConfig.getExpireSeconds() == null) {
             throw new IllegalStateException("[" + method.getDeclaringClass().getName() + "." + method.getName() + "] " +
                     "must set expire time");
@@ -102,14 +104,25 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         if (cached == null) {
             return method.invoke(objectProxy, args);
         }
-        String key = FormatUtils.cacheKey(originalClass, method, args);
+
 
         String methodKey = FormatUtils.format(method);
         LocalCacher localCacher = localCacherMap.get(methodKey);
         CachedMethodConfig config = configMap.get(methodKey);
+        //解析spel表达式
+        if (StringUtils.isNotEmpty(config.getCondition()) && BooleanUtils.isNotTrue(SpelUtils.parse(config.getCondition(),
+                Boolean.class, originalClass, method, args))) {
+            return method.invoke(objectProxy, args);
+        }
         if (log.isDebugEnabled()) {
             log.debug("{} user cache type:{}", FormatUtils.format(originalClass, method), config.getType());
         }
+        String id = config.getId();
+        String key = StringUtils.isEmpty(id) ?
+                FormatUtils.cacheKey(originalClass, method, args) :
+                FormatUtils.cacheKey(originalClass, method, SpelUtils.parse(id, String.class, originalClass, method,
+                        args));
+
         if (config.getType() == CacheType.LOCAL || config.getType() == CacheType.BOTH) {
             return localCacher.load(key, () -> method.invoke(objectProxy, args), config);
         }
