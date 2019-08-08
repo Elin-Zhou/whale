@@ -89,6 +89,7 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         config.setSizeLimit(sizeLimit);
         config.setConsistency(cached.consistency() || globalConfig.isConsistency());
         config.setCacheNull(cached.cacheNull() || globalConfig.isCacheNull());
+        config.setCondition(cached.condition());
         return config;
     }
 
@@ -105,7 +106,6 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
             return method.invoke(objectProxy, args);
         }
 
-
         String methodKey = FormatUtils.format(method);
         LocalCacher localCacher = localCacherMap.get(methodKey);
         CachedMethodConfig config = configMap.get(methodKey);
@@ -114,15 +114,14 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
                 Boolean.class, originalClass, method, args))) {
             return method.invoke(objectProxy, args);
         }
-        if (log.isDebugEnabled()) {
-            log.debug("{} user cache type:{}", FormatUtils.format(originalClass, method), config.getType());
-        }
         String id = config.getId();
         String key = StringUtils.isEmpty(id) ?
                 FormatUtils.cacheKey(originalClass, method, args) :
                 FormatUtils.cacheKey(originalClass, method, SpelUtils.parse(id, String.class, originalClass, method,
                         args));
-
+        if (log.isDebugEnabled()) {
+            log.debug("{} user cache type:{}", key, config.getType());
+        }
         if (config.getType() == CacheType.LOCAL || config.getType() == CacheType.BOTH) {
             return localCacher.load(key, () -> method.invoke(objectProxy, args), config);
         }
