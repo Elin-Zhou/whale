@@ -12,14 +12,14 @@
 
     <artifactId>whale-spring-boot-starter</artifactId>
     <packaging>jar</packaging>
-    <version>0.1-SNAPSHOT</version>
+    <version>${whale.version}</version>
     <modelVersion>4.0.0</modelVersion>
 
     <dependencies>
         <dependency>
             <groupId>com.xxelin</groupId>
             <artifactId>whale-core</artifactId>
-            <version>0.1-SNAPSHOT</version>
+            <version>${whale.version}</version>
         </dependency>
     </dependencies>
 

@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 @Inherited
 public @interface Cached {
 
-    String nameSpace();
+    String nameSpace() default "";
 
     /**
      * 缓存id，用来作为缓存的key，根据此字段查询缓存
@@ -27,7 +27,7 @@ public @interface Cached {
      *
      * @return
      */
-    String id();
+    String id() default "";
 
     long expire() default -1;
 
