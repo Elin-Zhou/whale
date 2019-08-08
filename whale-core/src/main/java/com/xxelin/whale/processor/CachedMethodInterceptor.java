@@ -72,7 +72,7 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
 
     private CachedMethodConfig config(Method method, Cached cached) {
         CachedMethodConfig config = new CachedMethodConfig();
-        config.setNameSpace(globalConfig.getNamespace());
+        config.setNameSpace(StringUtils.isNotEmpty(cached.nameSpace()) ? cached.nameSpace() : globalConfig.getNamespace());
         config.setId(StringUtils.isNotEmpty(cached.id()) ? cached.id() : null);
         if (cached.expire() == -1 && globalConfig.getExpireSeconds() == null) {
             throw new IllegalStateException("[" + method.getDeclaringClass().getName() + "." + method.getName() + "] " +
