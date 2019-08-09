@@ -27,7 +27,7 @@ public @interface Cached {
      *
      * @return
      */
-    String id() default "";
+    String idExpress() default "";
 
     long expire() default -1;
 
@@ -50,4 +50,11 @@ public @interface Cached {
      */
     String condition() default "";
 
+    /**
+     * 方法key
+     * 如果不指定此值，则无法手动失效缓存
+     *
+     * @return
+     */
+    String value() default "";
 }

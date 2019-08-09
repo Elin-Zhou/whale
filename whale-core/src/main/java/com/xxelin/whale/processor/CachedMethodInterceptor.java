@@ -2,9 +2,12 @@ package com.xxelin.whale.processor;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.collect.Lists;
 import com.xxelin.whale.annotation.Cached;
 import com.xxelin.whale.config.CachedMethodConfig;
 import com.xxelin.whale.config.GlobalConfig;
+import com.xxelin.whale.core.CacheAdvanceProxy;
+import com.xxelin.whale.core.Cacher;
 import com.xxelin.whale.core.CaffeineCacher;
 import com.xxelin.whale.core.LocalCacher;
 import com.xxelin.whale.enums.CacheType;
@@ -21,7 +24,9 @@ import org.springframework.util.ClassUtils;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -40,12 +45,19 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
 
     private ConcurrentHashMap<String, CachedMethodConfig> configMap = new ConcurrentHashMap<>(128);
 
+    private ConcurrentHashMap<String, Method> methodMap = new ConcurrentHashMap<>(128);
+
     private GlobalConfig globalConfig;
+
+    private CacheAdvanceProxy cacheAdvanceProxy;
 
     public CachedMethodInterceptor(Object objectProxy, Map<Method, Cached> cachedMap, GlobalConfig globalConfig) {
         this.objectProxy = objectProxy;
         this.globalConfig = globalConfig;
         init(cachedMap);
+        cacheAdvanceProxy = new CacheAdvanceProxy(this);
+
+        log.debug("{} create cache proxy", originalClass.getName());
     }
 
     private void init(Map<Method, Cached> cachedMap) {
@@ -58,8 +70,10 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
             originalClass = interfaces[interfaces.length - 1];
         }
         for (Map.Entry<Method, Cached> entry : cachedMap.entrySet()) {
-            String method = FormatUtils.format(entry.getKey());
-            CachedMethodConfig config = config(entry.getKey(), entry.getValue());
+            Cached cached = entry.getValue();
+            String method = StringUtils.isNotEmpty(cached.value()) ? cached.value() :
+                    FormatUtils.format(entry.getKey());
+            CachedMethodConfig config = config(entry.getKey(), cached);
             CacheType type = config.getType();
             if (type == CacheType.LOCAL || type == CacheType.BOTH) {
                 Cache<String, Object> cache =
@@ -73,7 +87,7 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
     private CachedMethodConfig config(Method method, Cached cached) {
         CachedMethodConfig config = new CachedMethodConfig();
         config.setNameSpace(StringUtils.isNotEmpty(cached.nameSpace()) ? cached.nameSpace() : globalConfig.getNamespace());
-        config.setId(StringUtils.isNotEmpty(cached.id()) ? cached.id() : null);
+        config.setId(StringUtils.isNotEmpty(cached.idExpress()) ? cached.idExpress() : null);
         if (cached.expire() == -1 && globalConfig.getExpireSeconds() == null) {
             throw new IllegalStateException("[" + method.getDeclaringClass().getName() + "." + method.getName() + "] " +
                     "must set expire time");
@@ -93,6 +107,13 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         return config;
     }
 
+    public Optional<LocalCacher> getLocalCacher(String methodKey) {
+        return Optional.ofNullable(localCacherMap.get(methodKey));
+    }
+
+    public List<Cacher> getCacher(String methodKey) {
+        return Lists.newArrayList(localCacherMap.get(methodKey));
+    }
 
     @Override
     public Object intercept(Object o, Method method, Object[] objects, MethodProxy methodProxy) throws Throwable {
@@ -101,12 +122,17 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+
+        if (cacheAdvanceProxy.isAdvanceMethod(method)) {
+            return cacheAdvanceProxy.invokeAdvance(method, args);
+        }
+
         Cached cached = AnnotationUtils.findAnnotation(method, Cached.class);
         if (cached == null) {
             return method.invoke(objectProxy, args);
         }
-
-        String methodKey = FormatUtils.format(method);
+        String methodKey = StringUtils.isNotEmpty(cached.value()) ? cached.value() : FormatUtils.format(method);
+        methodMap.putIfAbsent(methodKey, method);
         LocalCacher localCacher = localCacherMap.get(methodKey);
         CachedMethodConfig config = configMap.get(methodKey);
         //解析spel表达式
@@ -116,8 +142,8 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         }
         String id = config.getId();
         String key = StringUtils.isEmpty(id) ?
-                FormatUtils.cacheKey(originalClass, method, args) :
-                FormatUtils.cacheKey(originalClass, method, SpelUtils.parse(id, String.class, originalClass, method,
+                FormatUtils.cacheKey(originalClass, methodKey, args) :
+                FormatUtils.cacheKey(originalClass, methodKey, SpelUtils.parse(id, String.class, originalClass, method,
                         args));
         if (log.isDebugEnabled()) {
             log.debug("{} user cache type:{}", key, config.getType());
@@ -126,5 +152,18 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
             return localCacher.load(key, () -> method.invoke(objectProxy, args), config);
         }
         return method.invoke(objectProxy, args);
+    }
+
+    public String cacheKey(String methodKey, Object[] args) {
+        CachedMethodConfig config = configMap.get(methodKey);
+        String id = config.getId();
+        return StringUtils.isEmpty(id) ?
+                FormatUtils.cacheKey(originalClass, methodKey, args) :
+                FormatUtils.cacheKey(originalClass, methodKey, SpelUtils.parse(id, String.class, originalClass,
+                        methodMap.get(methodKey), args));
+    }
+
+    public String cacheKey(String methodKey, String id) {
+        return FormatUtils.cacheKey(originalClass, methodKey, id);
     }
 }

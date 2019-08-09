@@ -58,8 +58,8 @@ public class FormatUtils {
         return cacheKey(clazz, method.getName(), params);
     }
 
-    public static String cacheKey(Class<?> clazz, Method method, String id) {
-        return clazz.getName() + "." + method + "#" + id;
+    public static String cacheKey(Class<?> clazz, String methodKey, String id) {
+        return clazz.getName() + "." + methodKey + "#" + id;
     }
 
 
