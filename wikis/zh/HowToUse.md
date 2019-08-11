@@ -31,20 +31,20 @@ whale.enable=true
  
 1...2...3...仅需简单三步，启动你的项目试试效果吧~
 
-
-## 配置缓存时长
-### 方法一
+## 细节配置
+### 配置缓存时长
+#### 方法一
 在application.properties中增加配置
 ```
 whale.expireSeconds=60
 ```
 其中60表示缓存的时长，单位为秒，该配置全局生效，所有在@Cached注解上没有设置expire参数的缓存均生效
 
-### 方法二
+#### 方法二
 在@Cached注解中有三个参数可选，分别是expire、timeUnit、localExpire，其中timeUnit表示缓存的单位，expire表示远程缓存的时长，localExpire表示本地缓存的时长，如果localExpire没有设置，则使用expire覆盖
 
 
-## 配置缓存类型
+### 配置缓存类型
 @Cached注解中有type字段用来设置缓存的类型，有三个值可选，LOCAL、REMOTE、BOTH。
 
 * LOCAL表示仅使用本地缓存，当前版本使用Caffeine作为缓存实现
@@ -52,26 +52,26 @@ whale.expireSeconds=60
 * BOTH表示同时使用本地缓存和远程缓存，优先使用本地缓存，当前版本暂不支持
 
 
-## 配置缓存的命中规则
+### 配置缓存的命中规则
 
-### 默认规则
+#### 默认规则
 当没有单独配置命中规则时，框架会自动以类名+方法+参数值作为缓存的key，其中参数值使用FASTJSON进行序列化，所以在默认规则下，需要所有参数精准匹配才能命中。
 
-### 自定义缓存key
+#### 自定义缓存key
 @Cached中有一个idExpress字段可以自定义缓存key，当不设置该字段时，将使用默认匹配规则。
 idExpress使用[SpEL表达式](https://docs.spring.io/spring/docs/4.2.x/spring-framework-reference/html/expressions.html),开发者可以自定义缓存key的规则。
 
-### 动态命中缓存
+#### 动态命中缓存
 一些场景下，开发者希望某些条件不命中缓存而直接进行回源操作，所以在@Cached中有一个condition字段，可以在此字段书写[SpEL表达式](https://docs.spring.io/spring/docs/4.2.x/spring-framework-reference/html/expressions.html)，通过返回true/false来控制是否需要命中缓存，当返回false时，强制不命中缓存，即进行回源操作。
 
-## 防止缓存击穿
+### 防止缓存击穿
 为了避免大量请求不存在的值时导致的大量回源操作，进而导致后端的数据库或其他资源压力加大，@Cached提供了cacheNull字段，当此字段设置为true时，将会对返回结果为null的情况进行缓存。
 如果需要全局开启null值缓存功能，可以在application.properties中增加配置
 ```
 whale.cacheNull=true
 ```
 
-### 手动缓存失效
+#### 手动缓存失效
 除了通过时间或者总量的限制来使缓存自动失效，还提供了细粒度的手动缓存失效方式。
 首先，需要单独设置缓存的方法名，在@Cached中设置value字段，此字段作为该类中的唯一方法标识
 
@@ -87,7 +87,7 @@ CacheUtils.invalidateWithId(bean, "value", req.getUserId());
 如果需要在手动失效当前类中的某个缓存，请使用下文中介绍的***在类中注入当前类对应的Bean***，并将注入的bean传入上述方法中来实现缓存的失效。
 
 
-##其他功能
+## 其他功能
 ### 在类中注入当前类对应的Bean
 如果因为一些原因，需要拿到当前类对应的bean，可以让当前类实现```com.xxelin.whale.processor.SelfAware```接口，并实现```void setSelf(T bean);```方法，该方法将在Spring启动时自动传入当前类对应的bean对象，开发者手动保存此对象已供后续使用。
 
