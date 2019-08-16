@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.cglib.proxy.Enhancer;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.util.ClassUtils;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -43,14 +44,14 @@ public class CachedBeanProcessor implements BeanPostProcessor {
             return o;
         }
         //if some method in this object use Cached annotation,create bean proxy
-        if (!Modifier.isFinal(clazz.getModifiers())) {
+        if (!Modifier.isFinal(clazz.getModifiers()) && !ClassUtils.isCglibProxyClass(clazz)) {
             Enhancer enhancer = new Enhancer();
             enhancer.setSuperclass(clazz);
             enhancer.setCallback(new CachedMethodInterceptor(o, cachedMap, globalConfig));
             return enhancer.create();
         }
         //if target class is final,use jdk dynamic proxy
-        Class<?>[] interfaces = clazz.getInterfaces();
+        Class<?>[] interfaces = ClassUtils.getAllInterfacesForClass(clazz);
         return Proxy.newProxyInstance(o.getClass().getClassLoader(), interfaces, new CachedMethodInterceptor(o,
                 cachedMap, globalConfig));
 
