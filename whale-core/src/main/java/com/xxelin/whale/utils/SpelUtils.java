@@ -25,9 +25,16 @@ public class SpelUtils {
         String[] parameterNames = parameterNameDiscoverer.getParameterNames(method);
         MethodBasedEvaluationContext context = new MethodBasedEvaluationContext(object,
                 method, args, parameterNameDiscoverer);
-        for (int i = 0; i < args.length; i++) {
-            context.setVariable(parameterNames[i], args[i]);
+        if (parameterNames != null) {
+            //在一些情况下，会无法获取的实际的参数名称
+            for (int i = 0; i < args.length; i++) {
+                context.setVariable(parameterNames[i], args[i]);
+            }
         }
+        for (int i = 0; i < args.length; i++) {
+            context.setVariable("arg" + i, args[i]);
+        }
+
         return expression.getValue(context, returnType);
     }
 
