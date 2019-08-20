@@ -18,7 +18,6 @@ public class CacheUtils {
     /**
      * 失效该对象中指定方法中的所有缓存
      * 仅支持失效本地缓存
-     * 无法在缓存所在的对象中使用当前方法
      *
      * @param bean
      * @param methodKey
@@ -33,14 +32,14 @@ public class CacheUtils {
     }
 
     /**
-     * 失效该对象中指定方法中的所有缓存
-     * 仅支持失效本地缓存
-     * 无法在缓存所在的对象中使用当前方法
+     * 失效该对象中指定方法中的指定缓存
+     * 需要失效的缓存通过方法入参指定，要求与原缓存方法中的入参一致
      *
      * @param bean
      * @param methodKey
+     * @param params 缓存时使用的参数
      */
-    public static void invalidate(Object bean, String methodKey, Object... params) {
+    public static void invalidateWithParams(Object bean, String methodKey, Object... params) {
         if (isCacheAdvance(bean)) {
             return;
         }
@@ -49,12 +48,12 @@ public class CacheUtils {
     }
 
     /**
-     * 失效该对象中指定方法中的所有缓存
-     * 仅支持失效本地缓存
-     * 无法在缓存所在的对象中使用当前方法
+     * 失效该对象中指定方法中的指定缓存
+     * 需要失效的缓存通过方法入参指定，要求与原缓存方法中的入参一致
      *
      * @param bean
      * @param methodKey
+     * @param id 缓存id,通过idExpress计算得到
      */
     public static void invalidateWithId(Object bean, String methodKey, String id) {
         if (isCacheAdvance(bean)) {

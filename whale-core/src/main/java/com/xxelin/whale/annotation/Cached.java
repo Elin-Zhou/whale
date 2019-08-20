@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
  * @version $Id: Cached.java , v 0.1 2019-07-31 11:44 ElinZhou Exp $
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.METHOD})
+@Target({ElementType.METHOD, ElementType.TYPE})
 @Inherited
 public @interface Cached {
 
@@ -51,10 +51,24 @@ public @interface Cached {
     String condition() default "";
 
     /**
-     * 方法key
+     * 同name字段
+     * @return
+     */
+    String value() default "";
+
+    /**
+     * 方法名称
      * 如果不指定此值，则无法手动失效缓存
      *
      * @return
      */
-    String value() default "";
+    String name() default "";
+
+
+    /**
+     * 是否启用缓存
+     *
+     * @return
+     */
+    boolean enable() default true;
 }

@@ -33,12 +33,18 @@ public class CachedBeanProcessor implements BeanPostProcessor {
     public Object postProcessAfterInitialization(Object o, String s) {
         Class<?> clazz = o.getClass();
 
+        Cached classCached = AnnotationUtils.findAnnotation(clazz, Cached.class);
         Method[] methods = clazz.getDeclaredMethods();
         Map<Method, Cached> cachedMap = new HashMap<>(methods.length);
         for (Method method : methods) {
             Cached cached = AnnotationUtils.findAnnotation(method, Cached.class);
+            if (cached != null && !cached.enable()) {
+                continue;
+            }
             if (cached != null) {
                 cachedMap.put(method, cached);
+            } else if (classCached != null) {
+                cachedMap.put(method, null);
             }
         }
 
@@ -51,7 +57,7 @@ public class CachedBeanProcessor implements BeanPostProcessor {
             Enhancer enhancer = new Enhancer();
             enhancer.setSuperclass(clazz);
             enhancer.setInterfaces(new Class[]{CacheAdvance.class});
-            enhancer.setCallback(new CachedMethodInterceptor(o, cachedMap, globalConfig));
+            enhancer.setCallback(new CachedMethodInterceptor(o, cachedMap, classCached, globalConfig));
             proxy = enhancer.create();
         } else {
             //if target class is final,use jdk dynamic proxy
@@ -59,7 +65,7 @@ public class CachedBeanProcessor implements BeanPostProcessor {
             Class<?>[] interfaces = Arrays.copyOf(original, original.length + 1);
             interfaces[original.length] = CacheAdvance.class;
             proxy = Proxy.newProxyInstance(o.getClass().getClassLoader(), interfaces, new CachedMethodInterceptor(o,
-                    cachedMap, globalConfig));
+                    cachedMap, classCached, globalConfig));
         }
         if (proxy instanceof SelfAware) {
             ((SelfAware) proxy).setSelf(proxy);

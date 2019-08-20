@@ -24,11 +24,14 @@ import org.springframework.util.ClassUtils;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com
@@ -51,9 +54,13 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
 
     private CacheAdvanceProxy cacheAdvanceProxy;
 
-    public CachedMethodInterceptor(Object objectProxy, Map<Method, Cached> cachedMap, GlobalConfig globalConfig) {
+    private Cached classCached;
+
+    public CachedMethodInterceptor(Object objectProxy, Map<Method, Cached> cachedMap, Cached classCached,
+                                   GlobalConfig globalConfig) {
         this.objectProxy = objectProxy;
         this.globalConfig = globalConfig;
+        this.classCached = classCached;
         init(cachedMap);
         cacheAdvanceProxy = new CacheAdvanceProxy(this);
 
@@ -71,9 +78,8 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         }
         for (Map.Entry<Method, Cached> entry : cachedMap.entrySet()) {
             Cached cached = entry.getValue();
-            String method = StringUtils.isNotEmpty(cached.value()) ? cached.value() :
-                    FormatUtils.format(entry.getKey());
-            CachedMethodConfig config = config(entry.getKey(), cached);
+            String method = methodKey(entry.getKey(), cached);
+            CachedMethodConfig config = newConfig(entry.getKey(), cached);
             CacheType type = config.getType();
             if (type == CacheType.LOCAL || type == CacheType.BOTH) {
                 Cache<String, Object> cache =
@@ -84,27 +90,87 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         }
     }
 
-    private CachedMethodConfig config(Method method, Cached cached) {
+    private CachedMethodConfig config(Method method, Cached methodCached) {
         CachedMethodConfig config = new CachedMethodConfig();
-        config.setNameSpace(StringUtils.isNotEmpty(cached.nameSpace()) ? cached.nameSpace() : globalConfig.getNamespace());
-        config.setId(StringUtils.isNotEmpty(cached.idExpress()) ? cached.idExpress() : null);
-        if (cached.expire() == -1 && globalConfig.getExpireSeconds() == null) {
+        config.setNameSpace(StringUtils.isNotEmpty(methodCached.nameSpace()) ? methodCached.nameSpace() :
+                globalConfig.getNamespace());
+        config.setId(StringUtils.isNotEmpty(methodCached.idExpress()) ? methodCached.idExpress() : null);
+        if (methodCached.expire() == -1 && globalConfig.getExpireSeconds() == null) {
             throw new IllegalStateException("[" + method.getDeclaringClass().getName() + "." + method.getName() + "] " +
                     "must set expire time");
         }
-        config.setExpire(cached.expire() == -1 ? globalConfig.getExpireSeconds() : cached.expire());
-        config.setTimeUnit(cached.expire() == -1 ? TimeUnit.SECONDS : cached.timeUnit());
-        config.setLocalExpire(cached.localExpire() == -1 ? config.getExpire() : cached.localExpire());
-        config.setType(cached.type());
-        int sizeLimit = cached.sizeLimit();
+        config.setExpire(methodCached.expire() == -1 ? globalConfig.getExpireSeconds() : methodCached.expire());
+        config.setTimeUnit(methodCached.expire() == -1 ? TimeUnit.SECONDS : methodCached.timeUnit());
+        config.setLocalExpire(methodCached.localExpire() == -1 ? config.getExpire() : methodCached.localExpire());
+        config.setType(methodCached.type());
+        int sizeLimit = methodCached.sizeLimit();
         if (globalConfig.getMaxSizeLimit() != null && sizeLimit > globalConfig.getMaxSizeLimit()) {
             sizeLimit = globalConfig.getMaxSizeLimit();
         }
         config.setSizeLimit(sizeLimit);
-        config.setConsistency(cached.consistency() || globalConfig.isConsistency());
-        config.setCacheNull(cached.cacheNull() || globalConfig.isCacheNull());
-        config.setCondition(cached.condition());
+        config.setConsistency(methodCached.consistency() || globalConfig.isConsistency());
+        config.setCacheNull(methodCached.cacheNull() || globalConfig.isCacheNull());
+        config.setCondition(methodCached.condition());
         return config;
+    }
+
+    private CachedMethodConfig newConfig(Method method, Cached methodCached) {
+
+        List<Cached> cacheConfigChain = new ArrayList<>(2);
+        if (classCached != null) {
+            cacheConfigChain.add(classCached);
+        }
+        if (methodCached != null) {
+            cacheConfigChain.add(methodCached);
+        }
+
+
+        CachedMethodConfig config = new CachedMethodConfig();
+        config.setNameSpace(globalConfig.getNamespace());
+        config.setExpire(globalConfig.getExpireSeconds());
+        config.setConsistency(globalConfig.isConsistency());
+        config.setCacheNull(globalConfig.isCacheNull());
+        config.setLocalExpire(config.getExpire());
+        config.setSizeLimit(globalConfig.getMaxSizeLimit());
+
+
+        for (Cached cached : cacheConfigChain) {
+
+            Function<Long, Boolean> notNegativeLongCheck = (p) -> p > 0;
+            Function<Integer, Boolean> notNegativeIntCheck = (p) -> p > 0;
+
+            config.setNameSpace(firstValidValue(cached.nameSpace(), config.getNameSpace(), StringUtils::isNotEmpty));
+            config.setId(firstValidValue(cached.idExpress(), config.getId(), StringUtils::isNotEmpty));
+            config.setExpire(firstValidValue(cached.expire(), config.getExpire(), notNegativeLongCheck));
+            config.setTimeUnit(firstValidValue(cached.timeUnit(), config.getTimeUnit(), Objects::nonNull));
+            config.setLocalExpire(firstValidValue(cached.localExpire(), config.getLocalExpire(), notNegativeLongCheck));
+            config.setType(firstValidValue(cached.type(), config.getType(), Objects::nonNull));
+            config.setSizeLimit(firstValidValue(cached.sizeLimit(), config.getSizeLimit(), notNegativeIntCheck));
+            config.setConsistency(firstValidValue(cached.consistency(), config.isConsistency(), p -> true));
+            config.setCacheNull(firstValidValue(cached.cacheNull(), config.isCacheNull(), p -> true));
+
+            config.setCondition(firstValidValue(cached.condition(), config.getCondition(), StringUtils::isNotEmpty));
+
+        }
+
+        if (config.getExpire() == null || config.getExpire() == -1) {
+            throw new IllegalStateException("[" + method.getDeclaringClass().getName() + "." + method.getName() + "] " +
+                    "must set expire time");
+        }
+        if (globalConfig.getMaxSizeLimit() != null && config.getSizeLimit() > globalConfig.getMaxSizeLimit()) {
+            config.setSizeLimit(globalConfig.getMaxSizeLimit());
+        }
+        return config;
+    }
+
+    private <T> T firstValidValue(T highPriority, T lowPriority, Function<T, Boolean> validCheck) {
+        if (highPriority != null && validCheck.apply(highPriority)) {
+            return highPriority;
+        }
+        if (lowPriority != null && validCheck.apply(lowPriority)) {
+            return lowPriority;
+        }
+        return null;
     }
 
     public Optional<LocalCacher> getLocalCacher(String methodKey) {
@@ -128,13 +194,14 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         }
 
         Cached cached = AnnotationUtils.findAnnotation(method, Cached.class);
-        if (cached == null) {
+        String methodKey = methodKey(method, cached);
+        CachedMethodConfig config = configMap.get(methodKey);
+        if (config == null) {
             return method.invoke(objectProxy, args);
         }
-        String methodKey = StringUtils.isNotEmpty(cached.value()) ? cached.value() : FormatUtils.format(method);
+
         methodMap.putIfAbsent(methodKey, method);
         LocalCacher localCacher = localCacherMap.get(methodKey);
-        CachedMethodConfig config = configMap.get(methodKey);
         //解析spel表达式
         if (StringUtils.isNotEmpty(config.getCondition()) && BooleanUtils.isNotTrue(SpelUtils.parse(config.getCondition(),
                 Boolean.class, originalClass, method, args))) {
@@ -152,6 +219,18 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
             return localCacher.load(key, () -> method.invoke(objectProxy, args), config);
         }
         return method.invoke(objectProxy, args);
+    }
+
+    private String methodKey(Method method, Cached cached) {
+        if (cached == null) {
+            return FormatUtils.format(method);
+        }
+        if (StringUtils.isNotEmpty(cached.value())) {
+            return cached.value();
+        } else if (StringUtils.isNotEmpty(cached.name())) {
+            return cached.name();
+        }
+        return FormatUtils.format(method);
     }
 
     public String cacheKey(String methodKey, Object[] args) {
