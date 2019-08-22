@@ -134,10 +134,9 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         config.setSizeLimit(globalConfig.getMaxSizeLimit());
 
 
+        Function<Long, Boolean> notNegativeLongCheck = (p) -> p > 0;
+        Function<Integer, Boolean> notNegativeIntCheck = (p) -> p > 0;
         for (Cached cached : cacheConfigChain) {
-
-            Function<Long, Boolean> notNegativeLongCheck = (p) -> p > 0;
-            Function<Integer, Boolean> notNegativeIntCheck = (p) -> p > 0;
 
             config.setNameSpace(firstValidValue(cached.nameSpace(), config.getNameSpace(), StringUtils::isNotEmpty));
             config.setId(firstValidValue(cached.idExpress(), config.getId(), StringUtils::isNotEmpty));
@@ -160,6 +159,7 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         if (globalConfig.getMaxSizeLimit() != null && config.getSizeLimit() > globalConfig.getMaxSizeLimit()) {
             config.setSizeLimit(globalConfig.getMaxSizeLimit());
         }
+        config.setLocalExpire(firstValidValue(config.getLocalExpire(), config.getExpire(), notNegativeLongCheck));
         return config;
     }
 
