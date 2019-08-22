@@ -8,7 +8,7 @@
     <dependency>
         <groupId>com.xxelin</groupId>
         <artifactId>whale-spring-boot-starter</artifactId>
-        <version>0.1.2-SNAPSHOT</version>
+        <version>1.1.0-RELEASE</version>
     </dependency>
 
 ```
