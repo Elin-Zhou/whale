@@ -52,6 +52,8 @@ condition|是否使用缓存|true|false|使用SpEL表达式，如果表达式返
 ### 如何使用redis
 因为本框架目前只支持在Spring环境下使用，所以默认会自动尝试调用AOP中的RedisTemplate，**如果RedisTemplate不存在，则将使用Jedis客户端，此时需要使用者提供redis链接信息。（第一个版本暂时不支持）**
 
+### 缓存监控
+如果当前项目为Spring Web项目，则可以直接访问 [http://host:port/whale/monitor/desc](http://host:port/whale/monitor/desc) 来查看当前应用中的缓存相关监控
 
 ## 问题？
 ### 如果集群间同步服务不可用，如何保证本地缓存的一致性？
