@@ -10,6 +10,7 @@ import com.xxelin.whale.core.CacheAdvanceProxy;
 import com.xxelin.whale.core.Cacher;
 import com.xxelin.whale.core.CaffeineCacher;
 import com.xxelin.whale.core.LocalCacher;
+import com.xxelin.whale.core.MonitorHolder;
 import com.xxelin.whale.enums.CacheType;
 import com.xxelin.whale.utils.FormatUtils;
 import com.xxelin.whale.utils.SpelUtils;
@@ -30,8 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com
@@ -84,35 +84,13 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
             if (type == CacheType.LOCAL || type == CacheType.BOTH) {
                 Cache<String, Object> cache =
                         Caffeine.newBuilder().expireAfterWrite(config.getLocalExpire(), config.getTimeUnit()).maximumSize(config.getSizeLimit()).build();
-                localCacherMap.put(method, new CaffeineCacher(cache));
+                localCacherMap.put(method, new CaffeineCacher(cache, originalClass, method));
             }
             configMap.put(method, config);
+            MonitorHolder.init(originalClass, method);
         }
     }
 
-    private CachedMethodConfig config(Method method, Cached methodCached) {
-        CachedMethodConfig config = new CachedMethodConfig();
-        config.setNameSpace(StringUtils.isNotEmpty(methodCached.nameSpace()) ? methodCached.nameSpace() :
-                globalConfig.getNamespace());
-        config.setId(StringUtils.isNotEmpty(methodCached.idExpress()) ? methodCached.idExpress() : null);
-        if (methodCached.expire() == -1 && globalConfig.getExpireSeconds() == null) {
-            throw new IllegalStateException("[" + method.getDeclaringClass().getName() + "." + method.getName() + "] " +
-                    "must set expire time");
-        }
-        config.setExpire(methodCached.expire() == -1 ? globalConfig.getExpireSeconds() : methodCached.expire());
-        config.setTimeUnit(methodCached.expire() == -1 ? TimeUnit.SECONDS : methodCached.timeUnit());
-        config.setLocalExpire(methodCached.localExpire() == -1 ? config.getExpire() : methodCached.localExpire());
-        config.setType(methodCached.type());
-        int sizeLimit = methodCached.sizeLimit();
-        if (globalConfig.getMaxSizeLimit() != null && sizeLimit > globalConfig.getMaxSizeLimit()) {
-            sizeLimit = globalConfig.getMaxSizeLimit();
-        }
-        config.setSizeLimit(sizeLimit);
-        config.setConsistency(methodCached.consistency() || globalConfig.isConsistency());
-        config.setCacheNull(methodCached.cacheNull() || globalConfig.isCacheNull());
-        config.setCondition(methodCached.condition());
-        return config;
-    }
 
     private CachedMethodConfig newConfig(Method method, Cached methodCached) {
 
@@ -134,8 +112,8 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         config.setSizeLimit(globalConfig.getMaxSizeLimit());
 
 
-        Function<Long, Boolean> notNegativeLongCheck = (p) -> p > 0;
-        Function<Integer, Boolean> notNegativeIntCheck = (p) -> p > 0;
+        Predicate<Long> notNegativeLongCheck = p -> p > 0;
+        Predicate<Integer> notNegativeIntCheck = p -> p > 0;
         for (Cached cached : cacheConfigChain) {
 
             config.setNameSpace(firstValidValue(cached.nameSpace(), config.getNameSpace(), StringUtils::isNotEmpty));
@@ -163,11 +141,11 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         return config;
     }
 
-    private <T> T firstValidValue(T highPriority, T lowPriority, Function<T, Boolean> validCheck) {
-        if (highPriority != null && validCheck.apply(highPriority)) {
+    private <T> T firstValidValue(T highPriority, T lowPriority, Predicate<T> validCheck) {
+        if (highPriority != null && validCheck.test(highPriority)) {
             return highPriority;
         }
-        if (lowPriority != null && validCheck.apply(lowPriority)) {
+        if (lowPriority != null && validCheck.test(lowPriority)) {
             return lowPriority;
         }
         return null;

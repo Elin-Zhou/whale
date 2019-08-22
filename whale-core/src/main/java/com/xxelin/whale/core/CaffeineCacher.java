@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.xxelin.whale.config.CachedMethodConfig;
 import com.xxelin.whale.utils.CacheLockHolder;
 import com.xxelin.whale.utils.Null;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -11,13 +12,15 @@ import lombok.extern.slf4j.Slf4j;
  * @version $Id: CaffeineCacher.java , v 0.1 2019-08-02 14:41 ElinZhou Exp $
  */
 @Slf4j
+@AllArgsConstructor
 public class CaffeineCacher implements LocalCacher {
 
     private Cache<String, Object> cache;
 
-    public CaffeineCacher(Cache<String, Object> cache) {
-        this.cache = cache;
-    }
+    private Class<?> originalClass;
+
+    private String name;
+
 
     @Override
     @SuppressWarnings("unchecked")
@@ -28,11 +31,14 @@ public class CaffeineCacher implements LocalCacher {
             synchronized (CacheLockHolder.getLock(key)) {
                 if ((result = cache.getIfPresent(key)) == null) {
                     hit = false;
+                    long start = System.currentTimeMillis();
                     result = sourceBack(key, method, cachedMethodConfig);
+                    MonitorHolder.requestAndMiss(originalClass, name, System.currentTimeMillis() - start);
                 }
             }
         } else {
             log.debug("[hit cache]{}", key);
+            MonitorHolder.requestAndHit(originalClass, name);
         }
 
         if (hit) {
