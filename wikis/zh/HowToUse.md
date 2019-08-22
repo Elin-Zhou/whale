@@ -15,6 +15,7 @@
 
 ### 2.开启缓存
 在application.properties中增加一条配置来开启缓存服务
+
 ```
 whale.enable=true
 ```
@@ -32,12 +33,17 @@ whale.enable=true
 1...2...3...仅需简单三步，启动你的项目试试效果吧~
 
 ## 细节配置
+
+### 为某个方法/类开启缓存
+如果想要在某个方法中开启缓存功能，可以像之前简单三步的例子中那样，在对应的方法上增加一个```@Cache```注解
+
+如果想让某个类所有的方法均开启缓存，可以在该类上增加```@Cache```注解；如果该类中某个方法不想开启缓存，可以在该方法上单独加上```@Cache(enable=false)```
+
+同理，所有在方法上的配置优先级将高于在类的配置，类的配置优先级高于全局配置。
+
 ### 配置缓存时长
 #### 方法一
-在application.properties中增加配置
-```
-whale.expireSeconds=60
-```
+在application.properties中增加配置```whale.expireSeconds=60```，
 其中60表示缓存的时长，单位为秒，该配置全局生效，所有在@Cached注解上没有设置expire参数的缓存均生效
 
 #### 方法二
@@ -77,7 +83,7 @@ whale.cacheNull=true
 
 ```
 //方法一 直接传入参数
-CacheUtils.invalidateWithId(bean, "value", req);
+CacheUtils.invalidateWithParams(bean, "value", req);
 //方法二 手动拼接key,即开发自行计算@Cached中idExpress的结果传入
 CacheUtils.invalidateWithId(bean, "value", req.getUserId());
 ```
