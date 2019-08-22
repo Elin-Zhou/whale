@@ -1,6 +1,8 @@
 # Whale
 whale is a cache framework that is simple to use
 
+Whale是一个非常简单，只有很少的配置但是非常实用的缓存框架，项目中引入Whale只需要简单的三步 [简单三个步骤快速使用Whale](./wikis/zh/HowToUse.md)
+
 ## 设计方向
 1. 可以在方法上直接加注解来实现自动缓存
 2. 手动读写，类似与guava的读写
