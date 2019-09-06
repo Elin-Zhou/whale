@@ -11,6 +11,8 @@ import com.xxelin.whale.core.Cacher;
 import com.xxelin.whale.core.CaffeineCacher;
 import com.xxelin.whale.core.LocalCacher;
 import com.xxelin.whale.core.MonitorHolder;
+import com.xxelin.whale.core.RedisTemplateCacher;
+import com.xxelin.whale.core.RemoteCacher;
 import com.xxelin.whale.enums.CacheType;
 import com.xxelin.whale.utils.FormatUtils;
 import com.xxelin.whale.utils.SpelUtils;
@@ -45,6 +47,8 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
     private Class<?> originalClass;
 
     private ConcurrentHashMap<String, LocalCacher> localCacherMap = new ConcurrentHashMap<>(128);
+
+    private ConcurrentHashMap<String, RemoteCacher> remoteCacherMap = new ConcurrentHashMap<>(128);
 
     private ConcurrentHashMap<String, CachedMethodConfig> configMap = new ConcurrentHashMap<>(128);
 
@@ -81,6 +85,9 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
             String method = methodKey(entry.getKey(), cached);
             CachedMethodConfig config = newConfig(entry.getKey(), cached);
             CacheType type = config.getType();
+            if ((type == CacheType.REMOTE || type == CacheType.BOTH)) {
+                remoteCacherMap.put(method, new RedisTemplateCacher());
+            }
             if (type == CacheType.LOCAL || type == CacheType.BOTH) {
                 Cache<String, Object> cache =
                         Caffeine.newBuilder().expireAfterWrite(config.getLocalExpire(), config.getTimeUnit()).maximumSize(config.getSizeLimit()).build();
@@ -179,7 +186,6 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         }
 
         methodMap.putIfAbsent(methodKey, method);
-        LocalCacher localCacher = localCacherMap.get(methodKey);
         //解析spel表达式
         if (StringUtils.isNotEmpty(config.getCondition()) && BooleanUtils.isNotTrue(SpelUtils.parse(config.getCondition(),
                 Boolean.class, originalClass, method, args))) {
@@ -193,8 +199,14 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         if (log.isDebugEnabled()) {
             log.debug("{} user cache type:{}", key, config.getType());
         }
-        if (config.getType() == CacheType.LOCAL || config.getType() == CacheType.BOTH) {
+        LocalCacher localCacher = localCacherMap.get(methodKey);
+        if (config.getType() == CacheType.REMOTE) {
+            return remoteCacherMap.get(methodKey).load(key, () -> method.invoke(objectProxy, args), config);
+        } else if (config.getType() == CacheType.LOCAL) {
             return localCacher.load(key, () -> method.invoke(objectProxy, args), config);
+        } else if (config.getType() == CacheType.BOTH) {
+            return remoteCacherMap.get(methodKey).load(key, () -> localCacher.load(key,
+                    () -> method.invoke(objectProxy, args), config), config);
         }
         return method.invoke(objectProxy, args);
     }
