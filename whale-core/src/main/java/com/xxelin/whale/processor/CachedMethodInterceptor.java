@@ -205,7 +205,7 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         } else if (config.getType() == CacheType.LOCAL) {
             return localCacher.load(key, () -> method.invoke(objectProxy, args), config);
         } else if (config.getType() == CacheType.BOTH) {
-            return remoteCacherMap.get(methodKey).load(key, () -> localCacher.load(key,
+            return localCacher.load(key, () -> remoteCacherMap.get(methodKey).load(key,
                     () -> method.invoke(objectProxy, args), config), config);
         }
         return method.invoke(objectProxy, args);

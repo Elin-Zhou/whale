@@ -1,7 +1,11 @@
 package com.xxelin.whale.core;
 
 import com.xxelin.whale.config.CachedMethodConfig;
+import com.xxelin.whale.utils.Null;
+import com.xxelin.whale.utils.serialize.KryoSerializer;
+import com.xxelin.whale.utils.serialize.Serializer;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com
@@ -13,9 +17,39 @@ public class RedisTemplateCacher implements RemoteCacher {
 
     private static final String ERROR_MSG = "无法找到RedisTemplate，远程缓存无法使用，请检查！";
 
+    private Serializer serializer = new KryoSerializer();
+
     @Override
     public <T> T load(String key, SourceBack<T> method, CachedMethodConfig config) throws Exception {
-        return method.get();
+        if (!RedisHolder.isEnable()) {
+            log.error(ERROR_MSG);
+            return method.get();
+        }
+        String nameSpace = config.getNameSpace();
+        byte[] redisKey = serializer.serialize(nameSpace + "_" + key);
+
+        RedisTemplate redisTemplate = RedisHolder.getRedisTemplate();
+        Object dataFromRedis = redisTemplate.opsForValue().get(redisKey);
+        if (dataFromRedis instanceof byte[]) {
+            Object deserialize = serializer.deserialize((byte[]) dataFromRedis);
+            if (deserialize != null) {
+                if (deserialize instanceof Null) {
+                    return null;
+                }
+                return (T) deserialize;
+            }
+        }
+        Object data = method.get();
+        if (data == null) {
+            if (!config.isCacheNull()) {
+                return null;
+            }
+            data = Null.of();
+        }
+
+        byte[] bytes = serializer.serialize(data);
+        redisTemplate.opsForValue().set(redisKey, bytes, config.getExpire(), config.getTimeUnit());
+        return (T) data;
     }
 
     @Override
@@ -26,4 +60,5 @@ public class RedisTemplateCacher implements RemoteCacher {
         }
         RedisHolder.getRedisTemplate().delete(key);
     }
+
 }

@@ -13,7 +13,10 @@ public class RedisHolder {
     private static RedisTemplate redisTemplate;
 
     public RedisHolder(RedisTemplate redisTemplate) {
-        enable = true;
+        if (redisTemplate != null) {
+            enable = true;
+            this.redisTemplate = redisTemplate;
+        }
     }
 
     public static boolean isEnable() {

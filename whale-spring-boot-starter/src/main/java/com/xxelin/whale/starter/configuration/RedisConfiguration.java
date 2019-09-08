@@ -3,6 +3,7 @@ package com.xxelin.whale.starter.configuration;
 import com.xxelin.whale.core.RedisHolder;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -17,7 +18,8 @@ import org.springframework.data.redis.core.RedisTemplate;
 public class RedisConfiguration {
 
     @Bean
-    public RedisHolder redisHolder(RedisTemplate redisTemplate) {
+    public RedisHolder redisHolder(ApplicationContext context) {
+        RedisTemplate redisTemplate = context.getBean("redisTemplate", RedisTemplate.class);
         return new RedisHolder(redisTemplate);
     }
 
