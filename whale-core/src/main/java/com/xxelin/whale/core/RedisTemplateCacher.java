@@ -2,6 +2,8 @@ package com.xxelin.whale.core;
 
 import com.xxelin.whale.config.CachedMethodConfig;
 import com.xxelin.whale.utils.Null;
+import com.xxelin.whale.utils.RedisLock;
+import com.xxelin.whale.utils.RedisLockUtils;
 import com.xxelin.whale.utils.serialize.KryoSerializer;
 import com.xxelin.whale.utils.serialize.Serializer;
 import lombok.extern.slf4j.Slf4j;
@@ -34,34 +36,54 @@ public class RedisTemplateCacher implements RemoteCacher {
             log.error(ERROR_MSG);
             return method.get();
         }
-        byte[] redisKey = redisCacheKey(cacheKey, config.getNameSpace());
+        byte[] redisKey = redisCacheKey(cacheKey);
 
+        Object data = loadCache(redisKey);
+        if (data == null) {
+            data = sourceBack(redisKey, method);
+        }
+        return data instanceof Null ? null : (T) data;
+    }
+
+
+    private Object loadCache(byte[] redisKey) {
         RedisTemplate redisTemplate = RedisHolder.getRedisTemplate();
         Object dataFromRedis = redisTemplate.opsForValue().get(redisKey);
         if (dataFromRedis instanceof byte[]) {
             Object deserialize = serializer.deserialize((byte[]) dataFromRedis);
-            if (deserialize != null) {
-                if (deserialize instanceof Null) {
-                    return null;
-                }
-                return (T) deserialize;
-            }
-        }
-        return sourceBack(redisKey, method);
-    }
-
-    private <T> T sourceBack(byte[] redisKey, SourceBack<T> method) throws Exception {
-        Object data = method.get();
-        if (data == null) {
-            if (!config.isCacheNull()) {
+            if (deserialize == null) {
                 return null;
             }
-            data = Null.of();
+            return deserialize;
         }
-        byte[] bytes = serializer.serialize(data);
-        RedisTemplate redisTemplate = RedisHolder.getRedisTemplate();
-        redisTemplate.opsForValue().set(redisKey, bytes, config.getExpire(), config.getTimeUnit());
-        return data instanceof Null ? null : (T) data;
+        return null;
+    }
+
+    private <T> Object sourceBack(byte[] redisKey, SourceBack<T> method) throws Exception {
+
+        try (RedisLock lock = RedisLockUtils.getLock(lockKey(), 10, 10, 500)) {
+            boolean cache = true;
+            if (lock == null && config.isConsistency()) {
+                //获取分布式锁失败,并且有一致性需求，只回源，不缓存
+                cache = false;
+            }
+            //双重锁检查
+            Object temp = loadCache(redisKey);
+            if (temp != null) {
+                return temp;
+            }
+            T data = method.get();
+            if (cache) {
+                if (data == null && !config.isCacheNull()) {
+                    return null;
+                }
+                byte[] bytes = serializer.serialize(data == null ? Null.of() : data);
+                RedisTemplate redisTemplate = RedisHolder.getRedisTemplate();
+                redisTemplate.opsForValue().set(redisKey, bytes, config.getExpire(), config.getTimeUnit());
+            }
+            return data;
+        }
+
     }
 
     @Override
@@ -70,12 +92,16 @@ public class RedisTemplateCacher implements RemoteCacher {
             log.error(ERROR_MSG);
             return;
         }
-        byte[] redisKey = redisCacheKey(key, config.getNameSpace());
+        byte[] redisKey = redisCacheKey(key);
         RedisHolder.getRedisTemplate().delete(redisKey);
     }
 
-    private byte[] redisCacheKey(String methodKey, String nameSpace) {
-        return serializer.serialize(nameSpace + "_" + methodKey);
+    private byte[] redisCacheKey(String cacheKey) {
+        return serializer.serialize(config.getNameSpace() + "_" + cacheKey);
+    }
+
+    private String lockKey() {
+        return config.getNameSpace() + "_" + methodKey;
     }
 
 }
