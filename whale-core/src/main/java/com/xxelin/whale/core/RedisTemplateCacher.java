@@ -19,14 +19,22 @@ public class RedisTemplateCacher implements RemoteCacher {
 
     private Serializer serializer = new KryoSerializer();
 
+    private String methodKey;
+
+    private CachedMethodConfig config;
+
+    public RedisTemplateCacher(String methodKey, CachedMethodConfig config) {
+        this.methodKey = methodKey;
+        this.config = config;
+    }
+
     @Override
-    public <T> T load(String key, SourceBack<T> method, CachedMethodConfig config) throws Exception {
+    public <T> T load(String cacheKey, SourceBack<T> method) throws Exception {
         if (!RedisHolder.isEnable()) {
             log.error(ERROR_MSG);
             return method.get();
         }
-        String nameSpace = config.getNameSpace();
-        byte[] redisKey = serializer.serialize(nameSpace + "_" + key);
+        byte[] redisKey = redisCacheKey(cacheKey, config.getNameSpace());
 
         RedisTemplate redisTemplate = RedisHolder.getRedisTemplate();
         Object dataFromRedis = redisTemplate.opsForValue().get(redisKey);
@@ -39,6 +47,10 @@ public class RedisTemplateCacher implements RemoteCacher {
                 return (T) deserialize;
             }
         }
+        return sourceBack(redisKey, method);
+    }
+
+    private <T> T sourceBack(byte[] redisKey, SourceBack<T> method) throws Exception {
         Object data = method.get();
         if (data == null) {
             if (!config.isCacheNull()) {
@@ -46,10 +58,10 @@ public class RedisTemplateCacher implements RemoteCacher {
             }
             data = Null.of();
         }
-
         byte[] bytes = serializer.serialize(data);
+        RedisTemplate redisTemplate = RedisHolder.getRedisTemplate();
         redisTemplate.opsForValue().set(redisKey, bytes, config.getExpire(), config.getTimeUnit());
-        return (T) data;
+        return data instanceof Null ? null : (T) data;
     }
 
     @Override
@@ -58,7 +70,12 @@ public class RedisTemplateCacher implements RemoteCacher {
             log.error(ERROR_MSG);
             return;
         }
-        RedisHolder.getRedisTemplate().delete(key);
+        byte[] redisKey = redisCacheKey(key, config.getNameSpace());
+        RedisHolder.getRedisTemplate().delete(redisKey);
+    }
+
+    private byte[] redisCacheKey(String methodKey, String nameSpace) {
+        return serializer.serialize(nameSpace + "_" + methodKey);
     }
 
 }

@@ -21,10 +21,11 @@ public class CaffeineCacher implements LocalCacher {
 
     private String name;
 
+    private CachedMethodConfig config;
 
     @Override
     @SuppressWarnings("unchecked")
-    public <T> T load(String key, SourceBack<T> method, CachedMethodConfig cachedMethodConfig) throws Exception {
+    public <T> T load(String key, SourceBack<T> method) throws Exception {
         boolean hit = true;
         Object result = cache.getIfPresent(key);
         if (result == null) {
@@ -32,7 +33,7 @@ public class CaffeineCacher implements LocalCacher {
                 if ((result = cache.getIfPresent(key)) == null) {
                     hit = false;
                     long start = System.currentTimeMillis();
-                    result = sourceBack(key, method, cachedMethodConfig);
+                    result = sourceBack(key, method);
                     MonitorHolder.requestAndMiss(originalClass, name, System.currentTimeMillis() - start);
                 }
             }
@@ -53,13 +54,13 @@ public class CaffeineCacher implements LocalCacher {
         return null;
     }
 
-    private <T> T sourceBack(String key, SourceBack<T> method, CachedMethodConfig cachedMethodConfig) throws Exception {
+    private <T> T sourceBack(String key, SourceBack<T> method) throws Exception {
         long start = System.currentTimeMillis();
         T result = method.get();
         if (log.isDebugEnabled()) {
             log.debug("[miss cache,spend:{}ms]{}", (System.currentTimeMillis() - start), key);
         }
-        if (result != null || cachedMethodConfig.isCacheNull()) {
+        if (result != null || config.isCacheNull()) {
             if (result != null) {
                 cache.put(key, result);
             } else {
