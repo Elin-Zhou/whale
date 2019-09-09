@@ -21,13 +21,21 @@ public class RedisTemplateCacher implements RemoteCacher {
 
     private Serializer serializer = new KryoSerializer();
 
+    private Class<?> originalClass;
+
     private String methodKey;
 
     private CachedMethodConfig config;
 
-    public RedisTemplateCacher(String methodKey, CachedMethodConfig config) {
+    public RedisTemplateCacher(Class<?> originalClass, String methodKey, CachedMethodConfig config) {
+        this.originalClass = originalClass;
         this.methodKey = methodKey;
         this.config = config;
+    }
+
+    @Override
+    public String cacheName() {
+        return "REDIS";
     }
 
     @Override
@@ -40,7 +48,10 @@ public class RedisTemplateCacher implements RemoteCacher {
 
         Object data = loadCache(redisKey);
         if (data == null) {
-            data = sourceBack(redisKey, method);
+            data = sourceBack(cacheKey, redisKey, method);
+        } else {
+            log.debug("[hit redis cache]{}", cacheKey);
+            MonitorHolder.requestAndHit(originalClass, methodKey, this);
         }
         return data instanceof Null ? null : (T) data;
     }
@@ -59,7 +70,7 @@ public class RedisTemplateCacher implements RemoteCacher {
         return null;
     }
 
-    private <T> Object sourceBack(byte[] redisKey, SourceBack<T> method) throws Exception {
+    private <T> Object sourceBack(String cacheKey, byte[] redisKey, SourceBack<T> method) throws Exception {
 
         try (RedisLock lock = RedisLockUtils.getLock(lockKey(), 10, 10, 500)) {
             boolean cache = true;
@@ -70,9 +81,16 @@ public class RedisTemplateCacher implements RemoteCacher {
             //双重锁检查
             Object temp = loadCache(redisKey);
             if (temp != null) {
+                log.debug("[hit redis cache]{}", cacheKey);
+                MonitorHolder.requestAndHit(originalClass, methodKey, this);
                 return temp;
             }
+            long start = System.currentTimeMillis();
             T data = method.get();
+            long spend = System.currentTimeMillis() - start;
+            log.debug("[miss redis cache,spend:{}ms]{}", spend, cacheKey);
+            MonitorHolder.requestAndMiss(originalClass, methodKey, this, spend);
+
             if (cache) {
                 if (data == null && !config.isCacheNull()) {
                     return null;

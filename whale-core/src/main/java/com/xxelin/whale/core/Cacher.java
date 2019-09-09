@@ -6,6 +6,8 @@ package com.xxelin.whale.core;
  */
 public interface Cacher {
 
+    String cacheName();
+
     <T> T load(String cacheKey, SourceBack<T> method) throws Exception;
 
     void invalidate(String key);

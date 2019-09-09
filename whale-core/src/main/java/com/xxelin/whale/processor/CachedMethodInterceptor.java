@@ -86,15 +86,18 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
             CachedMethodConfig config = newConfig(entry.getKey(), cached);
             CacheType type = config.getType();
             if ((type == CacheType.REMOTE || type == CacheType.BOTH)) {
-                remoteCacherMap.put(method, new RedisTemplateCacher(method, config));
+                RedisTemplateCacher templateCacher = new RedisTemplateCacher(originalClass, method, config);
+                remoteCacherMap.put(method, templateCacher);
+                MonitorHolder.init(originalClass, method, templateCacher);
             }
             if (type == CacheType.LOCAL || type == CacheType.BOTH) {
                 Cache<String, Object> cache =
                         Caffeine.newBuilder().expireAfterWrite(config.getLocalExpire(), config.getTimeUnit()).maximumSize(config.getSizeLimit()).build();
-                localCacherMap.put(method, new CaffeineCacher(cache, originalClass, method, config));
+                CaffeineCacher caffeineCacher = new CaffeineCacher(cache, originalClass, method, config);
+                localCacherMap.put(method, caffeineCacher);
+                MonitorHolder.init(originalClass, method, caffeineCacher);
             }
             configMap.put(method, config);
-            MonitorHolder.init(originalClass, method);
         }
     }
 
@@ -197,7 +200,7 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
                 FormatUtils.cacheKey(originalClass, methodKey, SpelUtils.parse(id, String.class, originalClass, method,
                         args));
         if (log.isDebugEnabled()) {
-            log.debug("{} user cache type:{}", key, config.getType());
+            log.debug("{} user cache type:{}", methodKey, config.getType());
         }
         LocalCacher localCacher = localCacherMap.get(methodKey);
         if (config.getType() == CacheType.REMOTE) {
