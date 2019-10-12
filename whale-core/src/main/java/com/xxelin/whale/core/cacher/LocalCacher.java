@@ -1,4 +1,4 @@
-package com.xxelin.whale.core;
+package com.xxelin.whale.core.cacher;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com

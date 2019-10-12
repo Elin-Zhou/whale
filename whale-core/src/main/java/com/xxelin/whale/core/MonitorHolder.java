@@ -6,6 +6,7 @@ import com.xxelin.whale.bean.CacheMethodReport;
 import com.xxelin.whale.bean.CacheRecord;
 import com.xxelin.whale.bean.CacheReport;
 import com.xxelin.whale.bean.CacherReport;
+import com.xxelin.whale.core.cacher.Cacher;
 
 import java.util.ArrayList;
 import java.util.List;

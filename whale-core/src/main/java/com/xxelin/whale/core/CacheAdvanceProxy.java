@@ -1,6 +1,7 @@
 package com.xxelin.whale.core;
 
 import com.google.common.collect.ImmutableMap;
+import com.xxelin.whale.core.cacher.LocalCacher;
 import com.xxelin.whale.processor.CachedMethodInterceptor;
 import lombok.extern.slf4j.Slf4j;
 

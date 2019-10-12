@@ -1,4 +1,6 @@
-package com.xxelin.whale.core;
+package com.xxelin.whale.core.cacher;
+
+import com.xxelin.whale.core.SourceBack;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com
