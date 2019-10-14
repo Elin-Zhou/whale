@@ -7,10 +7,10 @@ import com.xxelin.whale.annotation.Cached;
 import com.xxelin.whale.config.CachedMethodConfig;
 import com.xxelin.whale.config.GlobalConfig;
 import com.xxelin.whale.core.CacheAdvanceProxy;
+import com.xxelin.whale.core.MonitorHolder;
 import com.xxelin.whale.core.cacher.Cacher;
 import com.xxelin.whale.core.cacher.CaffeineCacher;
 import com.xxelin.whale.core.cacher.LocalCacher;
-import com.xxelin.whale.core.MonitorHolder;
 import com.xxelin.whale.core.cacher.RedisTemplateCacher;
 import com.xxelin.whale.core.cacher.RemoteCacher;
 import com.xxelin.whale.enums.CacheType;
@@ -86,7 +86,8 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
             CachedMethodConfig config = newConfig(entry.getKey(), cached);
             CacheType type = config.getType();
             if ((type == CacheType.REMOTE || type == CacheType.BOTH)) {
-                RedisTemplateCacher templateCacher = new RedisTemplateCacher(originalClass, method, config);
+                RedisTemplateCacher templateCacher = new RedisTemplateCacher(originalClass, method, config,
+                        entry.getKey().getReturnType().getClassLoader());
                 remoteCacherMap.put(method, templateCacher);
                 MonitorHolder.init(originalClass, method, templateCacher);
             }

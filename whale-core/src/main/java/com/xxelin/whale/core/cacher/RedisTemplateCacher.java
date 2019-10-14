@@ -30,10 +30,14 @@ public class RedisTemplateCacher implements RemoteCacher {
 
     private CachedMethodConfig config;
 
-    public RedisTemplateCacher(Class<?> originalClass, String methodKey, CachedMethodConfig config) {
+    private ClassLoader returnTypeClassLoader;
+
+    public RedisTemplateCacher(Class<?> originalClass, String methodKey, CachedMethodConfig config,
+                               ClassLoader classLoader) {
         this.originalClass = originalClass;
         this.methodKey = methodKey;
         this.config = config;
+        this.returnTypeClassLoader = classLoader;
     }
 
     @Override
@@ -60,11 +64,12 @@ public class RedisTemplateCacher implements RemoteCacher {
     }
 
 
+
     private Object loadCache(byte[] redisKey) {
         RedisTemplate redisTemplate = RedisHolder.getRedisTemplate();
         Object dataFromRedis = redisTemplate.opsForValue().get(redisKey);
         if (dataFromRedis instanceof byte[]) {
-            Object deserialize = serializer.deserialize((byte[]) dataFromRedis);
+            Object deserialize = serializer.deserialize((byte[]) dataFromRedis, returnTypeClassLoader);
             if (deserialize == null) {
                 return null;
             }

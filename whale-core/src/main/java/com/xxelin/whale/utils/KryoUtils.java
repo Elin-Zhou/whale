@@ -24,8 +24,9 @@ public class KryoUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> T deserialize(byte[] bytes) {
+    public static <T> T deserialize(byte[] bytes, ClassLoader classLoader) {
         Kryo kryo = new Kryo();
+        kryo.setClassLoader(classLoader);
         return (T) kryo.readClassAndObject(new Input(bytes));
     }
 

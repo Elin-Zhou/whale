@@ -43,7 +43,7 @@ public class KryoSerializer implements Serializer {
     }
 
     @Override
-    public <T> T deserialize(byte[] bytes) {
+    public <T> T deserialize(byte[] bytes, ClassLoader classLoader) {
         if (bytes.length <= MAGIC_NUMBER.length + 1 || !Arrays.equals(MAGIC_NUMBER, Arrays.copyOfRange(bytes, 0,
                 MAGIC_NUMBER.length))) {
             return null;
@@ -54,6 +54,6 @@ public class KryoSerializer implements Serializer {
         if (flag == 1) {
             data = GzipUtil.unzip(data);
         }
-        return KryoUtils.deserialize(data);
+        return KryoUtils.deserialize(data, classLoader);
     }
 }

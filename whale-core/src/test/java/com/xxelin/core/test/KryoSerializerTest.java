@@ -27,7 +27,7 @@ public class KryoSerializerTest {
 
         byte[] data = serializer.serialize(entity);
 
-        Entity deserialize = serializer.deserialize(data);
+        Entity deserialize = serializer.deserialize(data, this.getClass().getClassLoader());
 
         Assert.assertEquals(entity.getWords(), deserialize.getWords());
         Assert.assertEquals(entity.getTime(), entity.getTime());
