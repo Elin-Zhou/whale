@@ -41,4 +41,9 @@ public class WhaleProperties {
      */
     private boolean cacheNull;
 
+    /**
+     * 是否开启统计监控
+     */
+    private boolean monitor;
+
 }
