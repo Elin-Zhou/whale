@@ -20,6 +20,9 @@ public class RedisConfiguration {
     @Bean
     public RedisHolder redisHolder(ApplicationContext context) {
         RedisTemplate redisTemplate = context.getBean("redisTemplate", RedisTemplate.class);
+        if (redisTemplate == null) {
+            redisTemplate = context.getBean(RedisTemplate.class);
+        }
         return new RedisHolder(redisTemplate);
     }
 

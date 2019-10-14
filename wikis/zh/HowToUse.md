@@ -56,8 +56,8 @@ whale.enable=true
 @Cached注解中有type字段用来设置缓存的类型，有三个值可选，LOCAL、REMOTE、BOTH。
 
 * LOCAL表示仅使用本地缓存，当前版本使用Caffeine作为缓存实现
-* REMOTE表示仅使用远程缓存，当前版本暂不支持
-* BOTH表示同时使用本地缓存和远程缓存，优先使用本地缓存，当前版本暂不支持
+* REMOTE表示仅使用远程缓存，当前使用Redis作为缓存实现，当前版本仅支持已配置了RedisTemplate实例的系统来使用Redis缓存
+* BOTH表示同时使用本地缓存和远程缓存，优先使用本地缓存
 
 
 ### 配置缓存的命中规则
