@@ -47,20 +47,25 @@ public class RedisTemplateCacher implements RemoteCacher {
 
     @Override
     public <T> T load(String cacheKey, SourceBack<T> method) throws Exception {
-        if (!RedisHolder.isEnable()) {
-            log.error(ERROR_MSG);
+        try {
+            if (!RedisHolder.isEnable()) {
+                log.error(ERROR_MSG);
+                return method.get();
+            }
+            byte[] redisKey = redisCacheKey(cacheKey);
+
+            Object data = loadCache(redisKey);
+            if (data == null) {
+                data = sourceBack(cacheKey, redisKey, method);
+            } else {
+                log.debug("[hit redis cache]{}", cacheKey);
+                MonitorHolder.requestAndHit(originalClass, methodKey, this);
+            }
+            return data instanceof Null ? null : (T) data;
+        } catch (Exception e) {
+            log.error("redis cache error,key:{}", cacheKey, e);
             return method.get();
         }
-        byte[] redisKey = redisCacheKey(cacheKey);
-
-        Object data = loadCache(redisKey);
-        if (data == null) {
-            data = sourceBack(cacheKey, redisKey, method);
-        } else {
-            log.debug("[hit redis cache]{}", cacheKey);
-            MonitorHolder.requestAndHit(originalClass, methodKey, this);
-        }
-        return data instanceof Null ? null : (T) data;
     }
 
 

@@ -34,30 +34,36 @@ public class CaffeineCacher implements LocalCacher {
     @Override
     @SuppressWarnings("unchecked")
     public <T> T load(String key, SourceBack<T> method) throws Exception {
-        boolean hit = true;
-        Object result = cache.getIfPresent(key);
-        if (result == null) {
-            synchronized (CacheLockHolder.getLock(key)) {
-                if ((result = cache.getIfPresent(key)) == null) {
-                    hit = false;
-                    result = sourceBack(key, method);
+        try {
+            boolean hit = true;
+            Object result = cache.getIfPresent(key);
+            if (result == null) {
+                synchronized (CacheLockHolder.getLock(key)) {
+                    if ((result = cache.getIfPresent(key)) == null) {
+                        hit = false;
+                        result = sourceBack(key, method);
+                    }
                 }
+            } else {
+                log.debug("[hit caffeine cache]{}", key);
+                MonitorHolder.requestAndHit(originalClass, name, this);
             }
-        } else {
-            log.debug("[hit caffeine cache]{}", key);
-            MonitorHolder.requestAndHit(originalClass, name, this);
-        }
 
-        if (hit) {
-            PageHelperHolder.clear();
-        }
+            if (hit) {
+                PageHelperHolder.clear();
+            }
 
-        if (result instanceof Null) {
+            if (result instanceof Null) {
+                return null;
+            } else if (result != null) {
+                return (T) result;
+            }
             return null;
-        } else if (result != null) {
-            return (T) result;
+        } catch (Exception e) {
+            log.error("caffeine cache error,key:{}", key, e);
+            return method.get();
         }
-        return null;
+
     }
 
     private <T> T sourceBack(String key, SourceBack<T> method) throws Exception {
