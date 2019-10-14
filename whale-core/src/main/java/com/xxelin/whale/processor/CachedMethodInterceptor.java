@@ -86,8 +86,11 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
             CachedMethodConfig config = newConfig(entry.getKey(), cached);
             CacheType type = config.getType();
             if ((type == CacheType.REMOTE || type == CacheType.BOTH)) {
-                RedisTemplateCacher templateCacher = new RedisTemplateCacher(originalClass, method, config,
-                        entry.getKey().getReturnType().getClassLoader());
+                ClassLoader classLoader = entry.getKey().getReturnType().getClassLoader();
+                if (classLoader == null) {
+                    classLoader = originalClass.getClassLoader();
+                }
+                RedisTemplateCacher templateCacher = new RedisTemplateCacher(originalClass, method, config, classLoader);
                 remoteCacherMap.put(method, templateCacher);
                 MonitorHolder.init(originalClass, method, templateCacher);
             }

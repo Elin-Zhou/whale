@@ -89,7 +89,7 @@ public class RedisTemplateCacher implements RemoteCacher {
             //双重锁检查
             Object temp = loadCache(redisKey);
             if (temp != null) {
-                log.debug("[hit redis cache]{}", cacheKey);
+                log.debug("[hit redis cache(optimized)]{}", cacheKey);
                 MonitorHolder.requestAndHit(originalClass, methodKey, this);
                 return temp;
             }
