@@ -13,6 +13,7 @@ import com.xxelin.whale.core.cacher.CaffeineCacher;
 import com.xxelin.whale.core.cacher.LocalCacher;
 import com.xxelin.whale.core.cacher.RedisTemplateCacher;
 import com.xxelin.whale.core.cacher.RemoteCacher;
+import com.xxelin.whale.core.synchronizer.RedisSynchronizer;
 import com.xxelin.whale.enums.CacheType;
 import com.xxelin.whale.utils.FormatUtils;
 import com.xxelin.whale.utils.SpelUtils;
@@ -100,6 +101,12 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
                 CaffeineCacher caffeineCacher = new CaffeineCacher(cache, originalClass, method, config);
                 localCacherMap.put(method, caffeineCacher);
                 MonitorHolder.init(originalClass, method, caffeineCacher);
+
+                if (config.isConsistency()) {
+                    //只有开启了一致性配置的缓存，才需要注册
+                    //在远程缓存不可用时，会将其全部失效
+                    RedisSynchronizer.registeLocalCacher(caffeineCacher);
+                }
             }
             configMap.put(method, config);
         }

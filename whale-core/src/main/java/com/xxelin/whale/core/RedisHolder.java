@@ -19,6 +19,10 @@ public class RedisHolder {
         }
     }
 
+    public static void setEnable(boolean enable) {
+        RedisHolder.enable = enable;
+    }
+
     public static boolean isEnable() {
         return enable;
     }
