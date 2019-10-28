@@ -1,4 +1,4 @@
-package com.xxelin.whale.message.redis;
+package com.xxelin.whale.message.redis.entity;
 
 import lombok.Data;
 
@@ -11,8 +11,6 @@ import java.util.Date;
 @Data
 public class SimpleMessage {
 
-    private String content;
-
-    private Date createTime;
+    private Date createTime = new Date();
 
 }

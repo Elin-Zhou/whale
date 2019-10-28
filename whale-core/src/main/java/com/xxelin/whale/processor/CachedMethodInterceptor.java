@@ -35,6 +35,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com
@@ -61,13 +62,13 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
 
     private Cached classCached;
 
-    public CachedMethodInterceptor(Object objectProxy, Map<Method, Cached> cachedMap, Cached classCached,
-                                   GlobalConfig globalConfig) {
+    public CachedMethodInterceptor(String delgateBeanName, Object objectProxy, Map<Method, Cached> cachedMap,
+                                   Cached classCached, GlobalConfig globalConfig) {
         this.objectProxy = objectProxy;
         this.globalConfig = globalConfig;
         this.classCached = classCached;
         init(cachedMap);
-        cacheAdvanceProxy = new CacheAdvanceProxy(this);
+        cacheAdvanceProxy = new CacheAdvanceProxy(delgateBeanName, this);
 
         log.debug("{} create cache proxy", originalClass.getName());
     }
@@ -177,7 +178,8 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
     }
 
     public List<Cacher> getCacher(String methodKey) {
-        return Lists.newArrayList(localCacherMap.get(methodKey), remoteCacherMap.get(methodKey));
+        return Lists.newArrayList(localCacherMap.get(methodKey), remoteCacherMap.get(methodKey))
+                .stream().filter(Objects::nonNull).collect(Collectors.toList());
     }
 
     @Override
@@ -237,13 +239,20 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         return FormatUtils.format(method);
     }
 
-    public String cacheKey(String methodKey, Object[] args) {
-        CachedMethodConfig config = configMap.get(methodKey);
+    private String cacheKey(CachedMethodConfig config, String methodKey, Object[] args) {
         String id = config.getId();
         return StringUtils.isEmpty(id) ?
                 FormatUtils.cacheKey(originalClass, methodKey, args) :
                 FormatUtils.cacheKey(originalClass, methodKey, SpelUtils.parse(id, String.class, originalClass,
                         methodMap.get(methodKey), args));
+    }
+
+    public String cacheKey(String methodKey, Object[] args) {
+        CachedMethodConfig config = configMap.get(methodKey);
+        if (config == null) {
+            throw new RuntimeException("can not find config,methodKey:" + methodKey);
+        }
+        return cacheKey(config, methodKey, args);
     }
 
     public String cacheKey(String methodKey, String id) {

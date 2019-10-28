@@ -1,5 +1,7 @@
 package com.xxelin.whale.message.redis;
 
+import com.alibaba.fastjson.JSON;
+import com.xxelin.whale.message.redis.entity.SimpleMessage;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -14,7 +16,9 @@ public class RedisPublisher {
 
     private RedisTemplate redisTemplate;
 
-    public void publish(String topic, String message) {
-        redisTemplate.convertAndSend(topic, message);
+    private String redisTopicPrefix;
+
+    public void publish(RedisTopic topic, SimpleMessage message) {
+        redisTemplate.convertAndSend(redisTopicPrefix + topic.name(), JSON.toJSONString(message));
     }
 }

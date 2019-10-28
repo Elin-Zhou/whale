@@ -2,7 +2,12 @@ package com.xxelin.whale.core;
 
 import com.google.common.collect.ImmutableMap;
 import com.xxelin.whale.core.cacher.LocalCacher;
+import com.xxelin.whale.message.redis.RedisPublisher;
+import com.xxelin.whale.message.redis.RedisTopic;
+import com.xxelin.whale.message.redis.entity.InvalideAllMessage;
+import com.xxelin.whale.message.redis.entity.InvalideMessage;
 import com.xxelin.whale.processor.CachedMethodInterceptor;
+import com.xxelin.whale.utils.BeanFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.InvocationTargetException;
@@ -18,13 +23,15 @@ import java.util.Objects;
 @Slf4j
 public class CacheAdvanceProxy {
 
+    private String delgateBeanName;
+
     private final Map<String, Method> methodMap;
 
     private Invoker invoker;
 
     private CachedMethodInterceptor interceptor;
 
-    public CacheAdvanceProxy(CachedMethodInterceptor interceptor) {
+    public CacheAdvanceProxy(String delgateBeanName, CachedMethodInterceptor interceptor) {
         Method[] methods = CacheAdvance.class.getDeclaredMethods();
         Map<String, Method> map = new HashMap<>(methods.length);
         for (Method method : methods) {
@@ -33,6 +40,7 @@ public class CacheAdvanceProxy {
         methodMap = ImmutableMap.copyOf(map);
         invoker = new Invoker();
         this.interceptor = interceptor;
+        this.delgateBeanName = delgateBeanName;
     }
 
     public boolean isAdvanceMethod(Method method) {
@@ -55,6 +63,10 @@ public class CacheAdvanceProxy {
         public void invalidateAll$Proxy(String methodKey) {
             log.debug("invoke CacheAdvance.invalidateAll$Proxy,value:{}", methodKey);
             interceptor.getLocalCacher(methodKey).ifPresent(LocalCacher::invalidateAll);
+            InvalideAllMessage message = new InvalideAllMessage();
+            message.setMethodKey(methodKey);
+            message.setBeanName(delgateBeanName);
+            BeanFactory.getBean(RedisPublisher.class).ifPresent(p -> p.publish(RedisTopic.INVALIDATE_ALL, message));
         }
 
         @Override
@@ -62,6 +74,7 @@ public class CacheAdvanceProxy {
             String cacheKey = interceptor.cacheKey(methodKey, params);
             log.debug("invoke CacheAdvance.invalidate$Proxy,value:{},cacheKey:{}", methodKey, cacheKey);
             interceptor.getCacher(methodKey).stream().filter(Objects::nonNull).forEach(c -> c.invalidate(cacheKey));
+            invalidate(methodKey, cacheKey);
         }
 
         @Override
@@ -69,6 +82,15 @@ public class CacheAdvanceProxy {
             String cacheKey = interceptor.cacheKey(methodKey, id);
             log.debug("invoke CacheAdvance.invalidateWithId$Proxy,value:{},cacheKey:{}", methodKey, cacheKey);
             interceptor.getCacher(methodKey).stream().filter(Objects::nonNull).forEach(c -> c.invalidate(cacheKey));
+            invalidate(methodKey, cacheKey);
+        }
+
+        private void invalidate(String methodKey, String cacheKey) {
+            InvalideMessage message = new InvalideMessage();
+            message.setMethodKey(methodKey);
+            message.setCacheKey(cacheKey);
+            message.setBeanName(delgateBeanName);
+            BeanFactory.getBean(RedisPublisher.class).ifPresent(p -> p.publish(RedisTopic.INVALIDATE, message));
         }
     }
 

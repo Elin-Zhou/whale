@@ -46,4 +46,9 @@ public class WhaleProperties {
      */
     private boolean monitor;
 
+    /**
+     * redis 消息前缀，默认为/redis/whale/
+     */
+    private String redisTopicPrefix = "/redis/whale/";
+
 }

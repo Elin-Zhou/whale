@@ -3,6 +3,7 @@ package com.xxelin.whale.starter.configuration;
 import com.xxelin.whale.config.GlobalConfig;
 import com.xxelin.whale.processor.CachedBeanProcessor;
 import com.xxelin.whale.starter.properties.WhaleProperties;
+import com.xxelin.whale.utils.BeanFactory;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -36,6 +37,11 @@ public class WhaleConfiguration {
                 .consistency(whaleProperties.isConsistency())
                 .build();
         return new CachedBeanProcessor(configuration);
+    }
+
+    @Bean
+    public BeanFactory beanFactory() {
+        return new BeanFactory();
     }
 
 }

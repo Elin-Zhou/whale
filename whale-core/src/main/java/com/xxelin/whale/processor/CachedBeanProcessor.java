@@ -3,6 +3,7 @@ package com.xxelin.whale.processor;
 import com.xxelin.whale.annotation.Cached;
 import com.xxelin.whale.config.GlobalConfig;
 import com.xxelin.whale.core.CacheAdvance;
+import com.xxelin.whale.core.InterceptorHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.cglib.proxy.Enhancer;
@@ -30,7 +31,7 @@ public class CachedBeanProcessor implements BeanPostProcessor {
     }
 
     @SuppressWarnings("unchecked")
-    public Object postProcessAfterInitialization(Object o, String s) {
+    public Object postProcessAfterInitialization(Object o, String beanName) {
         Class<?> clazz = o.getClass();
 
         Cached classCached = AnnotationUtils.findAnnotation(clazz, Cached.class);
@@ -53,23 +54,25 @@ public class CachedBeanProcessor implements BeanPostProcessor {
         }
         //if some method in this object use Cached annotation,create bean proxy
         Object proxy;
+        CachedMethodInterceptor interceptor = new CachedMethodInterceptor(beanName, o, cachedMap, classCached,
+                globalConfig);
         if (!Modifier.isFinal(clazz.getModifiers()) && !ClassUtils.isCglibProxyClass(clazz)) {
             Enhancer enhancer = new Enhancer();
             enhancer.setSuperclass(clazz);
             enhancer.setInterfaces(new Class[]{CacheAdvance.class});
-            enhancer.setCallback(new CachedMethodInterceptor(o, cachedMap, classCached, globalConfig));
+            enhancer.setCallback(interceptor);
             proxy = enhancer.create();
         } else {
             //if target class is final,use jdk dynamic proxy
             Class<?>[] original =  ClassUtils.getAllInterfacesForClass(clazz);
             Class<?>[] interfaces = Arrays.copyOf(original, original.length + 1);
             interfaces[original.length] = CacheAdvance.class;
-            proxy = Proxy.newProxyInstance(o.getClass().getClassLoader(), interfaces, new CachedMethodInterceptor(o,
-                    cachedMap, classCached, globalConfig));
+            proxy = Proxy.newProxyInstance(o.getClass().getClassLoader(), interfaces, interceptor);
         }
         if (proxy instanceof SelfAware) {
             ((SelfAware) proxy).setSelf(proxy);
         }
+        InterceptorHolder.register(beanName, interceptor);
         return proxy;
 
     }

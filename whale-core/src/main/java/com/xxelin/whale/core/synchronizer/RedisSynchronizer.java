@@ -21,6 +21,10 @@ public class RedisSynchronizer {
 
     private static List<LocalCacher> localCachers = new ArrayList<>(128);
 
+    private RedisSynchronizer() {
+        throw new UnsupportedOperationException();
+    }
+
     public static void init() {
         new Thread(RedisSynchronizer::run).start();
     }
@@ -32,12 +36,12 @@ public class RedisSynchronizer {
     /**
      * 失效所有已经注册的本地缓存中的值
      */
-    public static void invalidateAll() {
+    private static void invalidateAll() {
         localCachers.parallelStream().forEach(LocalCacher::invalidateAll);
     }
 
-
-    public static void run() {
+    @SuppressWarnings("squid:S2189")
+    private static void run() {
         while (true) {
             try {
                 RedisHolder.getRedisTemplate().opsForValue().get("TEST");
@@ -53,7 +57,7 @@ public class RedisSynchronizer {
                     invalidateAll();
                 }
                 try {
-                    TimeUnit.MILLISECONDS.sleep(CHECK_INTERVAL_MILLISECONDS * 3);
+                    TimeUnit.MILLISECONDS.sleep(CHECK_INTERVAL_MILLISECONDS * 3L);
                 } catch (InterruptedException e1) {
                     Thread.currentThread().interrupt();
                 }

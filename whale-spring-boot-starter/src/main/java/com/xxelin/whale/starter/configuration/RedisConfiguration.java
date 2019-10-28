@@ -4,6 +4,9 @@ import com.xxelin.whale.core.RedisHolder;
 import com.xxelin.whale.core.synchronizer.RedisSynchronizer;
 import com.xxelin.whale.message.redis.RedisPublisher;
 import com.xxelin.whale.message.redis.RedisSubscriber;
+import com.xxelin.whale.message.redis.handler.InvalidateAllHandler;
+import com.xxelin.whale.message.redis.handler.InvalidateHandler;
+import com.xxelin.whale.starter.properties.WhaleProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationContext;
@@ -31,16 +34,15 @@ public class RedisConfiguration {
             redisTemplate = context.getBean(RedisTemplate.class);
         }
 
-        RedisHolder redisHolder = new RedisHolder(redisTemplate);
         if (redisTemplate != null) {
             RedisSynchronizer.init();
         }
-        return redisHolder;
+        return new RedisHolder(redisTemplate);
     }
 
     @Bean
-    public RedisSubscriber redisSubscriber() {
-        return new RedisSubscriber();
+    public RedisSubscriber redisSubscriber(WhaleProperties whaleProperties) {
+        return new RedisSubscriber(whaleProperties.getRedisTopicPrefix());
     }
 
     @Bean
@@ -56,17 +58,37 @@ public class RedisConfiguration {
     }
 
     @Bean
-    public RedisMessageListenerContainer container(RedisConnectionFactory connectionFactory,
-                                                   MessageListenerAdapter listener) {
+    public RedisMessageListenerContainer container(RedisConnectionFactory connectionFactory) {
 
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
-        container.addMessageListener(listener, new PatternTopic("/redis/whale"));
         return container;
     }
 
     @Bean
-    public RedisPublisher redisPublisher() {
-        return new RedisPublisher(RedisHolder.getRedisTemplate());
+    public RedisPublisher redisPublisher(WhaleProperties whaleProperties) {
+        return new RedisPublisher(RedisHolder.getRedisTemplate(), whaleProperties.getRedisTopicPrefix());
+    }
+
+    @Bean
+    public InvalidateHandler invalidateHandler(WhaleProperties whaleProperties,
+                                               RedisMessageListenerContainer container,
+                                               MessageListenerAdapter listener) {
+
+        InvalidateHandler invalidateHandler = new InvalidateHandler();
+        container.addMessageListener(listener,
+                new PatternTopic(whaleProperties.getRedisTopicPrefix() + invalidateHandler.topic()));
+        return invalidateHandler;
+    }
+
+    @Bean
+    public InvalidateAllHandler invalidateAllHandler(WhaleProperties whaleProperties,
+                                                     RedisMessageListenerContainer container,
+                                                     MessageListenerAdapter listener) {
+
+        InvalidateAllHandler invalidateAllHandler = new InvalidateAllHandler();
+        container.addMessageListener(listener,
+                new PatternTopic(whaleProperties.getRedisTopicPrefix() + invalidateAllHandler.topic()));
+        return invalidateAllHandler;
     }
 }
