@@ -8,7 +8,7 @@
     <dependency>
         <groupId>com.xxelin</groupId>
         <artifactId>whale-spring-boot-starter</artifactId>
-        <version>1.1.1-RELEASE</version>
+        <version>1.2.0-RELEASE</version>
     </dependency>
 
 ```
@@ -56,8 +56,8 @@ whale.enable=true
 @Cached注解中有type字段用来设置缓存的类型，有三个值可选，LOCAL、REMOTE、BOTH。
 
 * LOCAL表示仅使用本地缓存，当前版本使用Caffeine作为缓存实现
-* REMOTE表示仅使用远程缓存，当前版本暂不支持
-* BOTH表示同时使用本地缓存和远程缓存，优先使用本地缓存，当前版本暂不支持
+* REMOTE表示仅使用远程缓存，当前使用Redis作为缓存实现，当前版本仅支持已配置了RedisTemplate实例的系统来使用Redis缓存
+* BOTH表示同时使用本地缓存和远程缓存，优先使用本地缓存
 
 
 ### 配置缓存的命中规则
@@ -68,9 +68,11 @@ whale.enable=true
 #### 自定义缓存key
 @Cached中有一个idExpress字段可以自定义缓存key，当不设置该字段时，将使用默认匹配规则。
 idExpress使用[SpEL表达式](https://docs.spring.io/spring/docs/4.2.x/spring-framework-reference/html/expressions.html),开发者可以自定义缓存key的规则。
+在表达式内部，可以获取到当前方法的入参，通过arg0,arg1...等变量名依次获取到入参
 
 #### 动态命中缓存
 一些场景下，开发者希望某些条件不命中缓存而直接进行回源操作，所以在@Cached中有一个condition字段，可以在此字段书写[SpEL表达式](https://docs.spring.io/spring/docs/4.2.x/spring-framework-reference/html/expressions.html)，通过返回true/false来控制是否需要命中缓存，当返回false时，强制不命中缓存，即进行回源操作。
+在表达式内部，可以获取到当前方法的入参，通过arg0,arg1...等变量名依次获取到入参
 
 ### 防止缓存击穿
 为了避免大量请求不存在的值时导致的大量回源操作，进而导致后端的数据库或其他资源压力加大，@Cached提供了cacheNull字段，当此字段设置为true时，将会对返回结果为null的情况进行缓存。

@@ -3,6 +3,7 @@ package com.xxelin.whale.starter.configuration;
 import com.xxelin.whale.starter.web.MonitorFilter;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.autoconfigure.web.WebMvcAutoConfiguration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -27,9 +28,11 @@ import java.util.List;
 @ConditionalOnClass({Servlet.class, DispatcherServlet.class,
         WebMvcConfigurerAdapter.class})
 @ConditionalOnWebApplication
+@ConditionalOnProperty(prefix = "whale", havingValue = "true", name = "enable")
 public class MonitorConfiguration {
 
     @Bean
+    @ConditionalOnProperty(prefix = "whale", havingValue = "true", name = "monitor")
     public FilterRegistrationBean monitorFilterConfigurer() {
         MonitorFilter filter = new MonitorFilter();
         FilterRegistrationBean registrationBean = new FilterRegistrationBean();

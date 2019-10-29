@@ -1,3 +1,4 @@
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
 com.xxelin.whale.starter.configuration.WhaleConfiguration,\
-com.xxelin.whale.starter.configuration.MonitorConfiguration
+com.xxelin.whale.starter.configuration.MonitorConfiguration,\
+com.xxelin.whale.starter.configuration.RedisConfiguration

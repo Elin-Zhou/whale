@@ -7,10 +7,12 @@ import com.xxelin.whale.annotation.Cached;
 import com.xxelin.whale.config.CachedMethodConfig;
 import com.xxelin.whale.config.GlobalConfig;
 import com.xxelin.whale.core.CacheAdvanceProxy;
-import com.xxelin.whale.core.Cacher;
-import com.xxelin.whale.core.CaffeineCacher;
-import com.xxelin.whale.core.LocalCacher;
 import com.xxelin.whale.core.MonitorHolder;
+import com.xxelin.whale.core.cacher.Cacher;
+import com.xxelin.whale.core.cacher.CaffeineCacher;
+import com.xxelin.whale.core.cacher.LocalCacher;
+import com.xxelin.whale.core.cacher.RedisTemplateCacher;
+import com.xxelin.whale.core.cacher.RemoteCacher;
 import com.xxelin.whale.enums.CacheType;
 import com.xxelin.whale.utils.FormatUtils;
 import com.xxelin.whale.utils.SpelUtils;
@@ -45,6 +47,8 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
     private Class<?> originalClass;
 
     private ConcurrentHashMap<String, LocalCacher> localCacherMap = new ConcurrentHashMap<>(128);
+
+    private ConcurrentHashMap<String, RemoteCacher> remoteCacherMap = new ConcurrentHashMap<>(128);
 
     private ConcurrentHashMap<String, CachedMethodConfig> configMap = new ConcurrentHashMap<>(128);
 
@@ -81,13 +85,23 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
             String method = methodKey(entry.getKey(), cached);
             CachedMethodConfig config = newConfig(entry.getKey(), cached);
             CacheType type = config.getType();
+            if ((type == CacheType.REMOTE || type == CacheType.BOTH)) {
+                ClassLoader classLoader = entry.getKey().getReturnType().getClassLoader();
+                if (classLoader == null) {
+                    classLoader = originalClass.getClassLoader();
+                }
+                RedisTemplateCacher templateCacher = new RedisTemplateCacher(originalClass, method, config, classLoader);
+                remoteCacherMap.put(method, templateCacher);
+                MonitorHolder.init(originalClass, method, templateCacher);
+            }
             if (type == CacheType.LOCAL || type == CacheType.BOTH) {
                 Cache<String, Object> cache =
                         Caffeine.newBuilder().expireAfterWrite(config.getLocalExpire(), config.getTimeUnit()).maximumSize(config.getSizeLimit()).build();
-                localCacherMap.put(method, new CaffeineCacher(cache, originalClass, method));
+                CaffeineCacher caffeineCacher = new CaffeineCacher(cache, originalClass, method, config);
+                localCacherMap.put(method, caffeineCacher);
+                MonitorHolder.init(originalClass, method, caffeineCacher);
             }
             configMap.put(method, config);
-            MonitorHolder.init(originalClass, method);
         }
     }
 
@@ -156,7 +170,7 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
     }
 
     public List<Cacher> getCacher(String methodKey) {
-        return Lists.newArrayList(localCacherMap.get(methodKey));
+        return Lists.newArrayList(localCacherMap.get(methodKey), remoteCacherMap.get(methodKey));
     }
 
     @Override
@@ -179,7 +193,6 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
         }
 
         methodMap.putIfAbsent(methodKey, method);
-        LocalCacher localCacher = localCacherMap.get(methodKey);
         //解析spel表达式
         if (StringUtils.isNotEmpty(config.getCondition()) && BooleanUtils.isNotTrue(SpelUtils.parse(config.getCondition(),
                 Boolean.class, originalClass, method, args))) {
@@ -191,10 +204,16 @@ public class CachedMethodInterceptor implements MethodInterceptor, InvocationHan
                 FormatUtils.cacheKey(originalClass, methodKey, SpelUtils.parse(id, String.class, originalClass, method,
                         args));
         if (log.isDebugEnabled()) {
-            log.debug("{} user cache type:{}", key, config.getType());
+            log.debug("{} user cache type:{}", methodKey, config.getType());
         }
-        if (config.getType() == CacheType.LOCAL || config.getType() == CacheType.BOTH) {
-            return localCacher.load(key, () -> method.invoke(objectProxy, args), config);
+        LocalCacher localCacher = localCacherMap.get(methodKey);
+        if (config.getType() == CacheType.REMOTE) {
+            return remoteCacherMap.get(methodKey).load(key, () -> method.invoke(objectProxy, args));
+        } else if (config.getType() == CacheType.LOCAL) {
+            return localCacher.load(key, () -> method.invoke(objectProxy, args));
+        } else if (config.getType() == CacheType.BOTH) {
+            return localCacher.load(key, () -> remoteCacherMap.get(methodKey).load(key,
+                    () -> method.invoke(objectProxy, args)));
         }
         return method.invoke(objectProxy, args);
     }

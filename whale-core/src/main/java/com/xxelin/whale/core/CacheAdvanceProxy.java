@@ -1,6 +1,7 @@
 package com.xxelin.whale.core;
 
 import com.google.common.collect.ImmutableMap;
+import com.xxelin.whale.core.cacher.LocalCacher;
 import com.xxelin.whale.processor.CachedMethodInterceptor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -8,6 +9,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com
@@ -59,14 +61,14 @@ public class CacheAdvanceProxy {
         public void invalidate$Proxy(String methodKey, Object... params) {
             String cacheKey = interceptor.cacheKey(methodKey, params);
             log.debug("invoke CacheAdvance.invalidate$Proxy,value:{},cacheKey:{}", methodKey, cacheKey);
-            interceptor.getCacher(methodKey).forEach(c -> c.invalidate(cacheKey));
+            interceptor.getCacher(methodKey).stream().filter(Objects::nonNull).forEach(c -> c.invalidate(cacheKey));
         }
 
         @Override
         public void invalidateWithId$Proxy(String methodKey, String id) {
             String cacheKey = interceptor.cacheKey(methodKey, id);
             log.debug("invoke CacheAdvance.invalidateWithId$Proxy,value:{},cacheKey:{}", methodKey, cacheKey);
-            interceptor.getCacher(methodKey).forEach(c -> c.invalidate(cacheKey));
+            interceptor.getCacher(methodKey).stream().filter(Objects::nonNull).forEach(c -> c.invalidate(cacheKey));
         }
     }
 

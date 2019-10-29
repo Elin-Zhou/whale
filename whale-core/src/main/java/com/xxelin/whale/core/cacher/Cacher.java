@@ -1,6 +1,6 @@
-package com.xxelin.whale.core;
+package com.xxelin.whale.core.cacher;
 
-import com.xxelin.whale.config.CachedMethodConfig;
+import com.xxelin.whale.core.SourceBack;
 
 /**
  * @author ElinZhou eeelinzhou@gmail.com
@@ -8,7 +8,9 @@ import com.xxelin.whale.config.CachedMethodConfig;
  */
 public interface Cacher {
 
-    <T> T load(String key, SourceBack<T> method, CachedMethodConfig config) throws Exception;
+    String cacheName();
+
+    <T> T load(String cacheKey, SourceBack<T> method) throws Exception;
 
     void invalidate(String key);
 }

@@ -57,6 +57,8 @@ condition|是否使用缓存|true|false|使用SpEL表达式，如果表达式返
 ### 缓存监控
 如果当前项目为Spring Web项目，则可以直接访问 [http://host:port/whale/monitor/desc](http://host:port/whale/monitor/desc) 来查看当前应用中的缓存相关监控
 
+默认情况下监控不开启，如果需要开启，可在application.properties中增加配置开启 ``whale.monitor=true``
+
 ## 问题？
 ### 如果集群间同步服务不可用，如何保证本地缓存的一致性？
 1. 是否可以通过zookeeper来实现缓存在集群间的同步来保证一致性，如果zookeeper不可用，则直接清空本地缓存（可以把控制权交给开发者）

@@ -2,19 +2,16 @@ package com.xxelin.whale.bean;
 
 import lombok.Data;
 
-import java.util.List;
-
 /**
  * @author ElinZhou eeelinzhou@gmail.com
- * @version $Id: CacheMethodReport.java , v 0.1 2019-08-22 13:50 ElinZhou Exp $
+ * @version $Id: CacherReport.java , v 0.1 2019-09-09 15:50 ElinZhou Exp $
  */
 @Data
-public class CacheMethodReport {
-
+public class CacherReport {
     private long requestTimes = 0;
     private long hitTimes = 0;
     private long sourceBackTime = 0;
-    private String method;
 
-    private List<CacherReport> cachers;
+    private String cacherName;
+
 }

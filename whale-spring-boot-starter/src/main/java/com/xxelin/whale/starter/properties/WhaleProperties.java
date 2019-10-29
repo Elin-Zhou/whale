@@ -11,16 +11,39 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "whale")
 public class WhaleProperties {
 
+    /**
+     * 是否开启缓存框架
+     */
     private boolean enable;
 
+    /**
+     * 缓存的命名空间，如果不配置会自动读取Spring中的spring.application.name配置
+     */
     private String namespace;
 
+    /**
+     * 缓存失效时间（秒）
+     */
     private Long expireSeconds;
 
+    /**
+     * 本地缓存的最大数量，默认为Integer.MAX_VALUE
+     */
     private Integer maxSizeLimit;
 
+    /**
+     * 是否开启强一致性
+     */
     private boolean consistency;
 
+    /**
+     * 是否缓存null值
+     */
     private boolean cacheNull;
+
+    /**
+     * 是否开启统计监控
+     */
+    private boolean monitor;
 
 }
