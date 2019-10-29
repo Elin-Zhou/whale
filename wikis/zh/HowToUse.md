@@ -70,9 +70,19 @@ whale.enable=true
 idExpress使用[SpEL表达式](https://docs.spring.io/spring/docs/4.2.x/spring-framework-reference/html/expressions.html),开发者可以自定义缓存key的规则。
 在表达式内部，可以获取到当前方法的入参，通过arg0,arg1...等变量名依次获取到入参
 
+例：
+```T(com.alibaba.fastjson.JSON).toJSONString(#arg0)```
+
+该表达式可以把方法入参中的第一个参数JSON序列化后的结果作为缓存的key
+
 #### 动态命中缓存
 一些场景下，开发者希望某些条件不命中缓存而直接进行回源操作，所以在@Cached中有一个condition字段，可以在此字段书写[SpEL表达式](https://docs.spring.io/spring/docs/4.2.x/spring-framework-reference/html/expressions.html)，通过返回true/false来控制是否需要命中缓存，当返回false时，强制不命中缓存，即进行回源操作。
 在表达式内部，可以获取到当前方法的入参，通过arg0,arg1...等变量名依次获取到入参
+
+例：
+```#arg0.version.equals('1.0.0')```
+
+该表达式表示只有当入参中第一个参数中的version字段为1.0.0时才命中缓存，该字段为其他值时全部进行回源操作
 
 ### 防止缓存击穿
 为了避免大量请求不存在的值时导致的大量回源操作，进而导致后端的数据库或其他资源压力加大，@Cached提供了cacheNull字段，当此字段设置为true时，将会对返回结果为null的情况进行缓存。
