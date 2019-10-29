@@ -1,6 +1,7 @@
 package com.xxelin.whale.message.redis;
 
 import com.alibaba.fastjson.JSON;
+import com.xxelin.whale.core.RedisHolder;
 import com.xxelin.whale.message.redis.entity.SimpleMessage;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,6 +20,8 @@ public class RedisPublisher {
     private String redisTopicPrefix;
 
     public void publish(RedisTopic topic, SimpleMessage message) {
-        redisTemplate.convertAndSend(redisTopicPrefix + topic.name(), JSON.toJSONString(message));
+        if (RedisHolder.isEnable()) {
+            redisTemplate.convertAndSend(redisTopicPrefix + topic.name(), JSON.toJSONString(message));
+        }
     }
 }
