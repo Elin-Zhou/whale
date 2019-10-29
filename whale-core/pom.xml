@@ -11,6 +11,6 @@
     <artifactId>whale-core</artifactId>
     <packaging>jar</packaging>
     <modelVersion>4.0.0</modelVersion>
-    <version>${parent.version}</version>
+    <version>${project.parent.version}</version>
 
 </project>

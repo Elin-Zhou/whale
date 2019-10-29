@@ -27,7 +27,7 @@ public class CacheAdvanceProxy {
 
     private final Map<String, Method> methodMap;
 
-    private Invoker invoker;
+    private CacheAdvance invoker;
 
     private CachedMethodInterceptor interceptor;
 
